@@ -828,491 +828,491 @@
             }
         }, 100);
     }
-}
 
-// ── Weapon HUD helpers ──
-function updateWeaponHUD() {
-    const weaponHud = document.getElementById('weapon-hud');
-    if (!equippedWeapon) {
-        weaponHud.classList.add('hidden');
-        return;
-    }
-    const config = Weapons.WEAPON_CONFIGS[equippedWeapon.type];
-    if (!config) return;
 
-    weaponHud.classList.remove('hidden');
-    Assets.inject('weapon-icon-container', config.icon);
-    document.getElementById('weapon-name').textContent = config.name;
+    // ── Weapon HUD helpers ──
+    function updateWeaponHUD() {
+        const weaponHud = document.getElementById('weapon-hud');
+        if (!equippedWeapon) {
+            weaponHud.classList.add('hidden');
+            return;
+        }
+        const config = Weapons.WEAPON_CONFIGS[equippedWeapon.type];
+        if (!config) return;
 
-    // Set icon box border color to weapon color
-    const hexColor = '#' + config.projColor.toString(16).padStart(6, '0');
-    document.getElementById('weapon-icon-box').style.borderColor = hexColor;
+        weaponHud.classList.remove('hidden');
+        Assets.inject('weapon-icon-container', config.icon);
+        document.getElementById('weapon-name').textContent = config.name;
 
-    // Ammo dots
-    const dotsContainer = document.getElementById('weapon-ammo-dots');
-    dotsContainer.innerHTML = '';
-    const totalAmmo = Weapons.WEAPON_CONFIGS[equippedWeapon.type].ammo;
-    for (let i = 0; i < totalAmmo; i++) {
-        const dot = document.createElement('span');
-        dot.className = 'ammo-dot' + (i >= equippedWeapon.ammo ? ' spent' : '');
-        dotsContainer.appendChild(dot);
-    }
-}
+        // Set icon box border color to weapon color
+        const hexColor = '#' + config.projColor.toString(16).padStart(6, '0');
+        document.getElementById('weapon-icon-box').style.borderColor = hexColor;
 
-// ── Ultimate Bar HUD ──
-function updateUltimateBarHUD() {
-    const bar = document.getElementById('ultimate-bar');
-    const fill = document.getElementById('ultimate-fill');
-    const label = document.getElementById('ultimate-label');
-    const segments = document.getElementById('ultimate-segments');
-    if (!bar) return;
-
-    bar.classList.remove('hidden');
-
-    // Fill width
-    const pct = (killStreak / ULTIMATE_KILLS_NEEDED) * 100;
-    fill.style.width = pct + '%';
-
-    // Segments (skull icons)
-    segments.innerHTML = '';
-    for (let i = 0; i < ULTIMATE_KILLS_NEEDED; i++) {
-        const seg = document.createElement('span');
-        seg.className = 'ult-segment' + (i < killStreak ? ' filled' : '');
-        seg.textContent = '💀';
-        segments.appendChild(seg);
+        // Ammo dots
+        const dotsContainer = document.getElementById('weapon-ammo-dots');
+        dotsContainer.innerHTML = '';
+        const totalAmmo = Weapons.WEAPON_CONFIGS[equippedWeapon.type].ammo;
+        for (let i = 0; i < totalAmmo; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'ammo-dot' + (i >= equippedWeapon.ammo ? ' spent' : '');
+            dotsContainer.appendChild(dot);
+        }
     }
 
-    if (ultimateReady) {
-        bar.classList.add('ultimate-ready');
-        label.textContent = 'SOUL PURGE READY [E]';
-    } else {
-        bar.classList.remove('ultimate-ready');
-        label.textContent = killStreak + ' / ' + ULTIMATE_KILLS_NEEDED + ' kills';
+    // ── Ultimate Bar HUD ──
+    function updateUltimateBarHUD() {
+        const bar = document.getElementById('ultimate-bar');
+        const fill = document.getElementById('ultimate-fill');
+        const label = document.getElementById('ultimate-label');
+        const segments = document.getElementById('ultimate-segments');
+        if (!bar) return;
+
+        bar.classList.remove('hidden');
+
+        // Fill width
+        const pct = (killStreak / ULTIMATE_KILLS_NEEDED) * 100;
+        fill.style.width = pct + '%';
+
+        // Segments (skull icons)
+        segments.innerHTML = '';
+        for (let i = 0; i < ULTIMATE_KILLS_NEEDED; i++) {
+            const seg = document.createElement('span');
+            seg.className = 'ult-segment' + (i < killStreak ? ' filled' : '');
+            seg.textContent = '💀';
+            segments.appendChild(seg);
+        }
+
+        if (ultimateReady) {
+            bar.classList.add('ultimate-ready');
+            label.textContent = 'SOUL PURGE READY [E]';
+        } else {
+            bar.classList.remove('ultimate-ready');
+            label.textContent = killStreak + ' / ' + ULTIMATE_KILLS_NEEDED + ' kills';
+        }
     }
-}
 
-// ═══════════════════════════════════════════════
-//  SOCKET EVENTS
-// ═══════════════════════════════════════════════
-function initSocket() {
-    socket.on('room-created', (data) => {
-        localPlayerId = data.playerId;
-        localGhostType = data.ghostType;
-        showLobby(data.code);
-        spawnLocalPlayer(data.spawn, data.ghostType);
+    // ═══════════════════════════════════════════════
+    //  SOCKET EVENTS
+    // ═══════════════════════════════════════════════
+    function initSocket() {
+        socket.on('room-created', (data) => {
+            localPlayerId = data.playerId;
+            localGhostType = data.ghostType;
+            showLobby(data.code);
+            spawnLocalPlayer(data.spawn, data.ghostType);
 
-        // Auto-add bots if "Play with Bots" was clicked
-        if (socket._playWithBots) {
-            socket._playWithBots = false;
-            socket.emit('add-bots', { count: selectedBotCount });
-        }
-    });
-
-    socket.on('player-joined', (data) => {
-        if (data.id !== localPlayerId) {
-            spawnRemotePlayer(data.id, {
-                name: data.name, ghostType: data.ghostType,
-                position: data.spawn, health: 100, alive: true
-            });
-            addLobbyPlayer(data.name, data.ghostType);
-        }
-        playerCount.textContent = data.playerCount;
-        if (data.playerCount >= 2) waitMsg.textContent = 'Ready to battle!';
-    });
-
-    socket.on('existing-players', (players) => {
-        Object.entries(players).forEach(([id, data]) => {
-            spawnRemotePlayer(id, data);
-            addLobbyPlayer(data.name, data.ghostType);
-        });
-    });
-
-    socket.on('existing-powerups', (powerups) => {
-        powerups.forEach(pw => {
-            const mesh = Powerups.createClock(pw.tier);
-            mesh.position.set(pw.position.x, pw.position.y, pw.position.z);
-            mesh.userData.baseY = pw.position.y;
-            scene.add(mesh);
-            powerupMeshes.set(pw.id, { mesh, data: pw });
-        });
-    });
-
-    socket.on('game-started', () => startGame());
-
-    socket.on('game-state', (state) => {
-        Object.entries(state).forEach(([id, data]) => {
-            if (id === localPlayerId) {
-                health = data.health;
-                kills = data.kills;
-                alive = data.alive;
-                updateHealthHUD();
-                updateKillsHUD();
-                return;
-            }
-            const remote = remotePlayers.get(id);
-            if (remote) {
-                if (data.position) remote.targetPos = data.position;
-                if (data.rotation) remote.targetRot = data.rotation;
-                remote.health = data.health;
-                remote.alive = data.alive;
-                remote.kills = data.kills;
-                remote.animState = data.animState;
+            // Auto-add bots if "Play with Bots" was clicked
+            if (socket._playWithBots) {
+                socket._playWithBots = false;
+                socket.emit('add-bots', { count: selectedBotCount });
             }
         });
-        updatePlayerListHUD(state);
-    });
 
-    socket.on('spawn-powerup', (data) => {
-        const mesh = Powerups.createClock(data.tier);
-        mesh.position.set(data.position.x, data.position.y, data.position.z);
-        mesh.userData.baseY = data.position.y;
-        scene.add(mesh);
-        powerupMeshes.set(data.id, { mesh, data });
-    });
-
-    socket.on('powerup-picked', (data) => {
-        const pw = powerupMeshes.get(data.powerupId);
-        if (pw && pw.mesh) scene.remove(pw.mesh);
-        powerupMeshes.delete(data.powerupId);
-
-        if (data.playerId === localPlayerId) {
-            health = data.newHealth;
-            updateHealthHUD();
-
-            if (data.tier === 2) {
-                showEffect('⚡ Speed Boost', 5000);
-                activePowerup = { type: 'speed', expiresAt: Date.now() + 5000 };
-                if (localPlayer) localPlayer.userData.speedBoost = Date.now() + 5000;
-                setAuraColor(0x38bdf8);  // cyan
-            } else if (data.tier === 3) {
-                showEffect('🔥 Damage Boost + Full Heal', 8000);
-                activePowerup = { type: 'damage', expiresAt: Date.now() + 8000 };
-                setAuraColor(0xff4444);  // red
-            } else {
-                showEffect('💚 +15 HP', 1500);
-                // Tier 1 = heal only, no blocking powerup
-            }
-
-            if (window.audioManager) window.audioManager.playPowerup();
-        }
-    });
-
-    // ── Weapon spawn ──
-    socket.on('spawn-weapon', (data) => {
-        const mesh = Weapons.createPickup(data.weaponType);
-        if (!mesh) return;
-        mesh.position.set(data.position.x, data.position.y, data.position.z);
-        mesh.userData.baseY = data.position.y;
-        scene.add(mesh);
-        weaponMeshes.set(data.id, { mesh, data });
-    });
-
-    socket.on('existing-weapons', (weapons) => {
-        weapons.forEach(w => {
-            const mesh = Weapons.createPickup(w.weaponType);
-            if (!mesh) return;
-            mesh.position.set(w.position.x, w.position.y, w.position.z);
-            mesh.userData.baseY = w.position.y;
-            scene.add(mesh);
-            weaponMeshes.set(w.id, { mesh, data: w });
-        });
-    });
-
-    socket.on('weapon-picked', (data) => {
-        const wm = weaponMeshes.get(data.weaponId);
-        if (wm && wm.mesh) scene.remove(wm.mesh);
-        weaponMeshes.delete(data.weaponId);
-
-        if (data.playerId === localPlayerId) {
-            const config = Weapons.WEAPON_CONFIGS[data.weaponType];
-            if (config) {
-                equippedWeapon = { type: data.weaponType, ammo: config.ammo };
-                updateWeaponHUD();
-                showEffect(config.icon + ' ' + config.name + ' (' + config.ammo + ' shots)', 2500);
-            }
-            if (window.audioManager) window.audioManager.playPowerup();
-        }
-    });
-
-    socket.on('player-attacked', (data) => {
-        if (data.attackerId === localPlayerId) return;
-        const remote = remotePlayers.get(data.attackerId);
-        if (remote && remote.mesh) {
-            const dir = new THREE.Vector3(data.direction.x, data.direction.y, data.direction.z);
-            const pos = remote.mesh.position.clone().add(dir.clone().normalize().multiplyScalar(1.5));
-            pos.y += 0.8;
-            const cfg = GhostFactory.GHOST_CONFIGS[remote.ghostType] || {};
-            const ghostColor = cfg.emissive || 0xa855f7;
-
-            // Spawn actual projectile from remote player
-            if (data.attackType === 'weapon' && data.weaponType && Weapons && Weapons.fireProjectile) {
-                Weapons.fireProjectile(scene, pos, dir.normalize(), data.weaponType, []);
-                Combat.spawnParticles(scene, pos, ghostColor, 8, 0.3);
-                if (window.audioManager) window.audioManager.playShoot('light');
-            } else {
-                Combat.spawnParticles(scene, pos, ghostColor, data.attackType === 'special' ? 16 : 8, 0.3);
-                Combat.fireProjectile(scene, pos, dir.normalize(), ghostColor, data.attackType || 'melee');
-            }
-        }
-    });
-
-    socket.on('player-damaged', (data) => {
-        if (data.targetId === localPlayerId) {
-            health = data.health;
-            updateHealthHUD();
-            // screen shake
-            camera.position.x += (Math.random() - 0.5) * 0.4;
-            camera.position.y += (Math.random() - 0.5) * 0.25;
-        }
-        // Update remote player health immediately
-        const target = remotePlayers.get(data.targetId);
-        if (target) {
-            target.health = data.health;
-            // Immediate visual update of the 3D health bar
-            if (target.mesh) {
-                GhostFactory.updateHealthBar(target.mesh, data.health);
-            }
-            // Flash red
-            if (target.mesh) {
-                target.mesh.traverse(child => {
-                    if (child.isMesh && child.material && child.material.emissive) {
-                        const orig = child.material.emissive.getHex();
-                        const origI = child.material.emissiveIntensity;
-                        child.material.emissive.setHex(0xff0000);
-                        child.material.emissiveIntensity = 1.5;
-                        setTimeout(() => {
-                            child.material.emissive.setHex(orig);
-                            child.material.emissiveIntensity = origI;
-                        }, 200);
-                    }
+        socket.on('player-joined', (data) => {
+            if (data.id !== localPlayerId) {
+                spawnRemotePlayer(data.id, {
+                    name: data.name, ghostType: data.ghostType,
+                    position: data.spawn, health: 100, alive: true
                 });
+                addLobbyPlayer(data.name, data.ghostType);
             }
-            // Show floating damage number
-            if (target.mesh && data.damage) {
-                showFloatingDamage(target.mesh.position, data.damage);
-            }
-            if (window.audioManager) window.audioManager.playHit();
-        }
-    });
+            playerCount.textContent = data.playerCount;
+            if (data.playerCount >= 2) waitMsg.textContent = 'Ready to battle!';
+        });
 
-    socket.on('player-died', (data) => {
-        const victimData = remotePlayers.get(data.id);
-        const vName = victimData ? victimData.name : 'Ghost';
+        socket.on('existing-players', (players) => {
+            Object.entries(players).forEach(([id, data]) => {
+                spawnRemotePlayer(id, data);
+                addLobbyPlayer(data.name, data.ghostType);
+            });
+        });
 
-        // Visual Explosion
-        if (victimData && victimData.mesh) {
-            const color = getGhostColor(victimData.ghostType);
-            Combat.spawnParticles(scene, victimData.mesh.position, color, 40, 0.8);
-        } else if (data.id === localPlayerId && localPlayer) {
-            const color = getGhostColor(localGhostType);
-            Combat.spawnParticles(scene, localPlayer.position, color, 50, 1.0);
-        }
+        socket.on('existing-powerups', (powerups) => {
+            powerups.forEach(pw => {
+                const mesh = Powerups.createClock(pw.tier);
+                mesh.position.set(pw.position.x, pw.position.y, pw.position.z);
+                mesh.userData.baseY = pw.position.y;
+                scene.add(mesh);
+                powerupMeshes.set(pw.id, { mesh, data: pw });
+            });
+        });
 
-        addKillFeedItem(data.killerName, data.id === localPlayerId ? localPlayerName : vName);
+        socket.on('game-started', () => startGame());
 
-        // Track kill streak for local player
-        if (data.killerId === localPlayerId && data.id !== localPlayerId && !data.isUltimate) {
-            killStreak = Math.min(killStreak + 1, ULTIMATE_KILLS_NEEDED);
-            if (killStreak >= ULTIMATE_KILLS_NEEDED && !ultimateReady) {
-                ultimateReady = true;
-                showEffect('⚡ ULTIMATE READY! Press E', 3000);
-            }
-            updateUltimateBarHUD();
-        }
+        socket.on('game-state', (state) => {
+            Object.entries(state).forEach(([id, data]) => {
+                if (id === localPlayerId) {
+                    health = data.health;
+                    kills = data.kills;
+                    alive = data.alive;
+                    updateHealthHUD();
+                    updateKillsHUD();
+                    return;
+                }
+                const remote = remotePlayers.get(id);
+                if (remote) {
+                    if (data.position) remote.targetPos = data.position;
+                    if (data.rotation) remote.targetRot = data.rotation;
+                    remote.health = data.health;
+                    remote.alive = data.alive;
+                    remote.kills = data.kills;
+                    remote.animState = data.animState;
+                }
+            });
+            updatePlayerListHUD(state);
+        });
 
-        if (data.id === localPlayerId) {
-            alive = false;
-            // Reset kill streak on death
-            killStreak = 0;
-            ultimateReady = false;
-            updateUltimateBarHUD();
-            killerName.textContent = data.killerName;
-            deathOverlay.classList.remove('hidden');
-            let cd = 3;
-            respawnCountdown.textContent = cd;
-            const iv = setInterval(() => { cd--; respawnCountdown.textContent = cd; if (cd <= 0) clearInterval(iv); }, 1000);
-            if (localPlayer) localPlayer.visible = false;
-        }
-        const remote = remotePlayers.get(data.id);
-        if (remote) remote.alive = false;
+        socket.on('spawn-powerup', (data) => {
+            const mesh = Powerups.createClock(data.tier);
+            mesh.position.set(data.position.x, data.position.y, data.position.z);
+            mesh.userData.baseY = data.position.y;
+            scene.add(mesh);
+            powerupMeshes.set(data.id, { mesh, data });
+        });
 
-        if (window.audioManager) window.audioManager.playDeath();
-    });
+        socket.on('powerup-picked', (data) => {
+            const pw = powerupMeshes.get(data.powerupId);
+            if (pw && pw.mesh) scene.remove(pw.mesh);
+            powerupMeshes.delete(data.powerupId);
 
-    socket.on('player-respawned', (data) => {
-        if (data.id === localPlayerId) {
-            alive = true;
-            health = 100;
-            deathOverlay.classList.add('hidden');
-            updateHealthHUD();
-            if (localPlayer) {
-                localPlayer.position.set(data.position.x, PLAYER_Y, data.position.z);
-                localPlayer.visible = true;
-            }
-        }
-        const remote = remotePlayers.get(data.id);
-        if (remote) {
-            remote.alive = true;
-            remote.health = 100;
-            remote.targetPos = data.position;
-        }
-    });
+            if (data.playerId === localPlayerId) {
+                health = data.newHealth;
+                updateHealthHUD();
 
-    socket.on('player-left', (data) => {
-        const remote = remotePlayers.get(data.id);
-        if (remote && remote.mesh) scene.remove(remote.mesh);
-        remotePlayers.delete(data.id);
-    });
+                if (data.tier === 2) {
+                    showEffect('⚡ Speed Boost', 5000);
+                    activePowerup = { type: 'speed', expiresAt: Date.now() + 5000 };
+                    if (localPlayer) localPlayer.userData.speedBoost = Date.now() + 5000;
+                    setAuraColor(0x38bdf8);  // cyan
+                } else if (data.tier === 3) {
+                    showEffect('🔥 Damage Boost + Full Heal', 8000);
+                    activePowerup = { type: 'damage', expiresAt: Date.now() + 8000 };
+                    setAuraColor(0xff4444);  // red
+                } else {
+                    showEffect('💚 +15 HP', 1500);
+                    // Tier 1 = heal only, no blocking powerup
+                }
 
-    socket.on('error-msg', (data) => showError(data.message));
-
-    // ── Ultimate VFX ──
-    socket.on('ultimate-used', (data) => {
-        // Spectacular AoE shockwave at the attacker's position
-        Combat.spawnUltimateVFX(scene, data.position, data.radius);
-
-        // Screen flash for everyone
-        const flash = document.createElement('div');
-        flash.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,51,102,0.35);pointer-events:none;z-index:999;transition:opacity 1.5s;';
-        document.body.appendChild(flash);
-        setTimeout(() => { flash.style.opacity = '0'; }, 100);
-        setTimeout(() => { flash.remove(); }, 1600);
-
-        // Heavy screen shake for attacker
-        if (data.attackerId === localPlayerId) {
-            showEffect('💥 SOUL PURGE!', 3000);
-        }
-    });
-
-    // ── Ability Visuals ──
-    socket.on('ability-used', (data) => {
-        if (window.audioManager) window.audioManager.playPowerup(); // generic sound for now
-
-        /* Visual Effects */
-        const pos = new THREE.Vector3(data.position.x, data.position.y, data.position.z);
-        const color = getGhostColor(data.ghostType);
-
-        // Spawn particles based on type
-        Combat.spawnParticles(scene, pos, color, 12, 0.5);
-
-        if (data.playerId === localPlayerId) {
-            // Feedback for local player
-            showEffect('✨ Ability Used!', 1000);
-        }
-    });
-}
-
-// ═══════════════════════════════════════════════
-//  BOOT
-// ═══════════════════════════════════════════════
-// ── Asset Preloading (Fix startup lag) ──
-// ── Asset Preloading (Async with Progress) ──
-function preloadAssetsAsync() {
-    const loadingScreen = document.getElementById('loading-screen');
-    const barFill = document.getElementById('loading-bar-fill');
-    const loadText = document.getElementById('loading-text');
-    const tasks = [];
-
-    // 1. Ghost Models
-    Object.keys(GhostFactory.GHOST_CONFIGS).forEach(type => {
-        tasks.push({
-            name: `Summoning ${type}...`,
-            action: () => {
-                const ghost = GhostFactory.create(type, 'Preload');
-                scene.add(ghost);
-                setTimeout(() => scene.remove(ghost), 100);
+                if (window.audioManager) window.audioManager.playPowerup();
             }
         });
-    });
 
-    // 2. Weapon Models
-    Object.keys(Weapons.WEAPON_CONFIGS).forEach(type => {
-        tasks.push({
-            name: `Forging ${type}...`,
-            action: () => {
-                const weapon = Weapons.createPickup(type);
-                if (weapon) {
-                    scene.add(weapon);
-                    setTimeout(() => scene.remove(weapon), 100);
+        // ── Weapon spawn ──
+        socket.on('spawn-weapon', (data) => {
+            const mesh = Weapons.createPickup(data.weaponType);
+            if (!mesh) return;
+            mesh.position.set(data.position.x, data.position.y, data.position.z);
+            mesh.userData.baseY = data.position.y;
+            scene.add(mesh);
+            weaponMeshes.set(data.id, { mesh, data });
+        });
+
+        socket.on('existing-weapons', (weapons) => {
+            weapons.forEach(w => {
+                const mesh = Weapons.createPickup(w.weaponType);
+                if (!mesh) return;
+                mesh.position.set(w.position.x, w.position.y, w.position.z);
+                mesh.userData.baseY = w.position.y;
+                scene.add(mesh);
+                weaponMeshes.set(w.id, { mesh, data: w });
+            });
+        });
+
+        socket.on('weapon-picked', (data) => {
+            const wm = weaponMeshes.get(data.weaponId);
+            if (wm && wm.mesh) scene.remove(wm.mesh);
+            weaponMeshes.delete(data.weaponId);
+
+            if (data.playerId === localPlayerId) {
+                const config = Weapons.WEAPON_CONFIGS[data.weaponType];
+                if (config) {
+                    equippedWeapon = { type: data.weaponType, ammo: config.ammo };
+                    updateWeaponHUD();
+                    showEffect(config.icon + ' ' + config.name + ' (' + config.ammo + ' shots)', 2500);
+                }
+                if (window.audioManager) window.audioManager.playPowerup();
+            }
+        });
+
+        socket.on('player-attacked', (data) => {
+            if (data.attackerId === localPlayerId) return;
+            const remote = remotePlayers.get(data.attackerId);
+            if (remote && remote.mesh) {
+                const dir = new THREE.Vector3(data.direction.x, data.direction.y, data.direction.z);
+                const pos = remote.mesh.position.clone().add(dir.clone().normalize().multiplyScalar(1.5));
+                pos.y += 0.8;
+                const cfg = GhostFactory.GHOST_CONFIGS[remote.ghostType] || {};
+                const ghostColor = cfg.emissive || 0xa855f7;
+
+                // Spawn actual projectile from remote player
+                if (data.attackType === 'weapon' && data.weaponType && Weapons && Weapons.fireProjectile) {
+                    Weapons.fireProjectile(scene, pos, dir.normalize(), data.weaponType, []);
+                    Combat.spawnParticles(scene, pos, ghostColor, 8, 0.3);
+                    if (window.audioManager) window.audioManager.playShoot('light');
+                } else {
+                    Combat.spawnParticles(scene, pos, ghostColor, data.attackType === 'special' ? 16 : 8, 0.3);
+                    Combat.fireProjectile(scene, pos, dir.normalize(), ghostColor, data.attackType || 'melee');
                 }
             }
         });
-    });
 
-    // 3. Shader Compilation
-    tasks.push({
-        name: 'Compiling Ectoplasm Shaders...',
-        action: () => {
-            renderer.compile(scene, camera);
-            // Force a render
-            renderer.render(scene, camera);
-        }
-    });
+        socket.on('player-damaged', (data) => {
+            if (data.targetId === localPlayerId) {
+                health = data.health;
+                updateHealthHUD();
+                // screen shake
+                camera.position.x += (Math.random() - 0.5) * 0.4;
+                camera.position.y += (Math.random() - 0.5) * 0.25;
+            }
+            // Update remote player health immediately
+            const target = remotePlayers.get(data.targetId);
+            if (target) {
+                target.health = data.health;
+                // Immediate visual update of the 3D health bar
+                if (target.mesh) {
+                    GhostFactory.updateHealthBar(target.mesh, data.health);
+                }
+                // Flash red
+                if (target.mesh) {
+                    target.mesh.traverse(child => {
+                        if (child.isMesh && child.material && child.material.emissive) {
+                            const orig = child.material.emissive.getHex();
+                            const origI = child.material.emissiveIntensity;
+                            child.material.emissive.setHex(0xff0000);
+                            child.material.emissiveIntensity = 1.5;
+                            setTimeout(() => {
+                                child.material.emissive.setHex(orig);
+                                child.material.emissiveIntensity = origI;
+                            }, 200);
+                        }
+                    });
+                }
+                // Show floating damage number
+                if (target.mesh && data.damage) {
+                    showFloatingDamage(target.mesh.position, data.damage);
+                }
+                if (window.audioManager) window.audioManager.playHit();
+            }
+        });
 
-    // 4. Particle Pool Warmup
-    tasks.push({
-        name: 'Energizing Particle Systems...',
-        action: () => {
-            // Pre-spawn and hide some particles
-            Combat.spawnParticles(scene, new THREE.Vector3(0, -100, 0), 0xffffff, 50, 1);
-        }
-    });
+        socket.on('player-died', (data) => {
+            const victimData = remotePlayers.get(data.id);
+            const vName = victimData ? victimData.name : 'Ghost';
 
-    // Execute tasks with delay to simulate load / allow UI update
-    let currentTask = 0;
-    const totalTasks = tasks.length;
-    // User requested ~10 seconds. Let's aim for a total duration close to that
-    // OR simply spread them out. 10s is very long, but we will pad it.
-    const stepTime = 600; // ~10-12 steps * 600ms = ~6-7 seconds
+            // Visual Explosion
+            if (victimData && victimData.mesh) {
+                const color = getGhostColor(victimData.ghostType);
+                Combat.spawnParticles(scene, victimData.mesh.position, color, 40, 0.8);
+            } else if (data.id === localPlayerId && localPlayer) {
+                const color = getGhostColor(localGhostType);
+                Combat.spawnParticles(scene, localPlayer.position, color, 50, 1.0);
+            }
 
-    function processNext() {
-        if (currentTask >= totalTasks) {
-            // Done
-            loadText.textContent = 'Ready to Haunt!';
-            barFill.style.width = '100%';
-            setTimeout(() => {
-                loadingScreen.classList.add('hidden');
-                document.getElementById('menu-screen').classList.remove('hidden');
-                document.getElementById('menu-screen').classList.add('active');
-            }, 500);
-            return;
-        }
+            addKillFeedItem(data.killerName, data.id === localPlayerId ? localPlayerName : vName);
 
-        const task = tasks[currentTask];
-        loadText.textContent = task.name;
-        const pct = Math.round(((currentTask + 1) / totalTasks) * 100);
-        barFill.style.width = pct + '%';
+            // Track kill streak for local player
+            if (data.killerId === localPlayerId && data.id !== localPlayerId && !data.isUltimate) {
+                killStreak = Math.min(killStreak + 1, ULTIMATE_KILLS_NEEDED);
+                if (killStreak >= ULTIMATE_KILLS_NEEDED && !ultimateReady) {
+                    ultimateReady = true;
+                    showEffect('⚡ ULTIMATE READY! Press E', 3000);
+                }
+                updateUltimateBarHUD();
+            }
 
-        // Run task
-        try {
-            task.action();
-        } catch (e) {
-            console.error('Asset load error:', e);
-        }
+            if (data.id === localPlayerId) {
+                alive = false;
+                // Reset kill streak on death
+                killStreak = 0;
+                ultimateReady = false;
+                updateUltimateBarHUD();
+                killerName.textContent = data.killerName;
+                deathOverlay.classList.remove('hidden');
+                let cd = 3;
+                respawnCountdown.textContent = cd;
+                const iv = setInterval(() => { cd--; respawnCountdown.textContent = cd; if (cd <= 0) clearInterval(iv); }, 1000);
+                if (localPlayer) localPlayer.visible = false;
+            }
+            const remote = remotePlayers.get(data.id);
+            if (remote) remote.alive = false;
 
-        currentTask++;
-        setTimeout(processNext, stepTime);
+            if (window.audioManager) window.audioManager.playDeath();
+        });
+
+        socket.on('player-respawned', (data) => {
+            if (data.id === localPlayerId) {
+                alive = true;
+                health = 100;
+                deathOverlay.classList.add('hidden');
+                updateHealthHUD();
+                if (localPlayer) {
+                    localPlayer.position.set(data.position.x, PLAYER_Y, data.position.z);
+                    localPlayer.visible = true;
+                }
+            }
+            const remote = remotePlayers.get(data.id);
+            if (remote) {
+                remote.alive = true;
+                remote.health = 100;
+                remote.targetPos = data.position;
+            }
+        });
+
+        socket.on('player-left', (data) => {
+            const remote = remotePlayers.get(data.id);
+            if (remote && remote.mesh) scene.remove(remote.mesh);
+            remotePlayers.delete(data.id);
+        });
+
+        socket.on('error-msg', (data) => showError(data.message));
+
+        // ── Ultimate VFX ──
+        socket.on('ultimate-used', (data) => {
+            // Spectacular AoE shockwave at the attacker's position
+            Combat.spawnUltimateVFX(scene, data.position, data.radius);
+
+            // Screen flash for everyone
+            const flash = document.createElement('div');
+            flash.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,51,102,0.35);pointer-events:none;z-index:999;transition:opacity 1.5s;';
+            document.body.appendChild(flash);
+            setTimeout(() => { flash.style.opacity = '0'; }, 100);
+            setTimeout(() => { flash.remove(); }, 1600);
+
+            // Heavy screen shake for attacker
+            if (data.attackerId === localPlayerId) {
+                showEffect('💥 SOUL PURGE!', 3000);
+            }
+        });
+
+        // ── Ability Visuals ──
+        socket.on('ability-used', (data) => {
+            if (window.audioManager) window.audioManager.playPowerup(); // generic sound for now
+
+            /* Visual Effects */
+            const pos = new THREE.Vector3(data.position.x, data.position.y, data.position.z);
+            const color = getGhostColor(data.ghostType);
+
+            // Spawn particles based on type
+            Combat.spawnParticles(scene, pos, color, 12, 0.5);
+
+            if (data.playerId === localPlayerId) {
+                // Feedback for local player
+                showEffect('✨ Ability Used!', 1000);
+            }
+        });
     }
 
-    // Start
-    processNext();
-}
+    // ═══════════════════════════════════════════════
+    //  BOOT
+    // ═══════════════════════════════════════════════
+    // ── Asset Preloading (Fix startup lag) ──
+    // ── Asset Preloading (Async with Progress) ──
+    function preloadAssetsAsync() {
+        const loadingScreen = document.getElementById('loading-screen');
+        const barFill = document.getElementById('loading-bar-fill');
+        const loadText = document.getElementById('loading-text');
+        const tasks = [];
 
-// ═══════════════════════════════════════════════
-//  BOOT
-// ═══════════════════════════════════════════════
-function init() {
-    initScene();
-    // Start async loading instead of sync
-    preloadAssetsAsync();
-    initMenu();
-    initSocket();
-    requestAnimationFrame(gameLoop);
-}
+        // 1. Ghost Models
+        Object.keys(GhostFactory.GHOST_CONFIGS).forEach(type => {
+            tasks.push({
+                name: `Summoning ${type}...`,
+                action: () => {
+                    const ghost = GhostFactory.create(type, 'Preload');
+                    scene.add(ghost);
+                    setTimeout(() => scene.remove(ghost), 100);
+                }
+            });
+        });
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
-}) ();
+        // 2. Weapon Models
+        Object.keys(Weapons.WEAPON_CONFIGS).forEach(type => {
+            tasks.push({
+                name: `Forging ${type}...`,
+                action: () => {
+                    const weapon = Weapons.createPickup(type);
+                    if (weapon) {
+                        scene.add(weapon);
+                        setTimeout(() => scene.remove(weapon), 100);
+                    }
+                }
+            });
+        });
+
+        // 3. Shader Compilation
+        tasks.push({
+            name: 'Compiling Ectoplasm Shaders...',
+            action: () => {
+                renderer.compile(scene, camera);
+                // Force a render
+                renderer.render(scene, camera);
+            }
+        });
+
+        // 4. Particle Pool Warmup
+        tasks.push({
+            name: 'Energizing Particle Systems...',
+            action: () => {
+                // Pre-spawn and hide some particles
+                Combat.spawnParticles(scene, new THREE.Vector3(0, -100, 0), 0xffffff, 50, 1);
+            }
+        });
+
+        // Execute tasks with delay to simulate load / allow UI update
+        let currentTask = 0;
+        const totalTasks = tasks.length;
+        // User requested ~10 seconds. Let's aim for a total duration close to that
+        // OR simply spread them out. 10s is very long, but we will pad it.
+        const stepTime = 600; // ~10-12 steps * 600ms = ~6-7 seconds
+
+        function processNext() {
+            if (currentTask >= totalTasks) {
+                // Done
+                loadText.textContent = 'Ready to Haunt!';
+                barFill.style.width = '100%';
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                    document.getElementById('menu-screen').classList.remove('hidden');
+                    document.getElementById('menu-screen').classList.add('active');
+                }, 500);
+                return;
+            }
+
+            const task = tasks[currentTask];
+            loadText.textContent = task.name;
+            const pct = Math.round(((currentTask + 1) / totalTasks) * 100);
+            barFill.style.width = pct + '%';
+
+            // Run task
+            try {
+                task.action();
+            } catch (e) {
+                console.error('Asset load error:', e);
+            }
+
+            currentTask++;
+            setTimeout(processNext, stepTime);
+        }
+
+        // Start
+        processNext();
+    }
+
+    // ═══════════════════════════════════════════════
+    //  BOOT
+    // ═══════════════════════════════════════════════
+    function init() {
+        initScene();
+        // Start async loading instead of sync
+        preloadAssetsAsync();
+        initMenu();
+        initSocket();
+        requestAnimationFrame(gameLoop);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
