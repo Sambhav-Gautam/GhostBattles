@@ -31,47 +31,58 @@
   <div id="menu-screen" class="screen hidden">
     <div class="menu-bg-particles" id="menu-particles"></div>
     <div class="menu-container">
-      <h1 class="game-title">Ghost<span class="title-highlight">Battles</span></h1>
+      <h1 class="game-title">GHOST<span class="title-highlight">BATTLES</span></h1>
       <p class="tagline">Spectral Combat Arena</p>
 
       <div class="menu-panel" id="main-menu">
-        <input type="text" id="player-name" placeholder="Your Name" maxlength="16" class="input-field">
+        <input type="text" id="player-name" class="input-field" placeholder="Enter Your Name" maxlength="15" />
 
         <div class="auth-buttons">
           <span id="user-display" class="hidden">Welcome, <b>Guest</b></span>
-          <button id="open-auth-btn" class="btn-link">Login / Register</button>
-          <button id="logout-btn" class="btn-link hidden">Logout</button>
+          <button id="open-auth-btn" class="btn btn-secondary btn-sm" style="margin-bottom:12px;">Login /
+            Register</button>
+          <button id="logout-btn" class="btn btn-secondary btn-sm hidden" style="margin-bottom:12px;">Logout</button>
         </div>
 
-        <div class="ghost-select">
-          <p class="select-label">Choose Your Ghost</p>
-          <div class="ghost-options" id="ghost-options">
-            <button class="ghost-btn selected" data-type="wraith">
-              <div class="ghost-preview wraith-preview"></div>
-              <span>Wraith</span>
-            </button>
-            <button class="ghost-btn" data-type="phantom">
-              <div class="ghost-preview phantom-preview"></div>
-              <span>Phantom</span>
-            </button>
-            <button class="ghost-btn" data-type="shade">
-              <div class="ghost-preview shade-preview"></div>
-              <span>Shade</span>
-            </button>
-            <button class="ghost-btn" data-type="specter">
-              <div class="ghost-preview specter-preview"></div>
-              <span>Specter</span>
-            </button>
+        <div class="select-label">Select Your Specter</div>
+        <div class="ghost-options" id="ghost-options">
+          <div class="ghost-btn selected" data-type="wraith" onclick="selectGhost('wraith')">
+            <div class="ghost-preview wraith-preview"></div>
+            <span class="ghost-name">Wraith</span>
+          </div>
+          <div class="ghost-btn" data-type="phantom" onclick="selectGhost('phantom')">
+            <div class="ghost-preview phantom-preview"></div>
+            <span class="ghost-name">Phantom</span>
+          </div>
+          <div class="ghost-btn" data-type="shade" onclick="selectGhost('shade')">
+            <div class="ghost-preview shade-preview"></div>
+            <span class="ghost-name">Shade</span>
+          </div>
+          <div class="ghost-btn" data-type="specter" onclick="selectGhost('specter')">
+            <div class="ghost-preview specter-preview"></div>
+            <span class="ghost-name">Specter</span>
           </div>
         </div>
 
         <div class="menu-actions">
-          <button id="create-room-btn" class="btn btn-primary">Create Room</button>
-          <button id="play-bots-btn" class="btn btn-bots">⚔️ Play with Bots</button>
+          <button id="create-room-btn" class="btn btn-primary" onclick="createRoom()">Create Room</button>
+
+          <div class="bot-controls">
+            <span class="bot-label">Bots:</span>
+            <div class="bot-count-btns">
+              <button class="bot-count-btn" onclick="setBotCount(0)">0</button>
+              <button class="bot-count-btn selected" onclick="setBotCount(1)">1</button>
+              <button class="bot-count-btn" onclick="setBotCount(3)">3</button>
+              <button class="bot-count-btn" onclick="setBotCount(5)">5</button>
+            </div>
+            <button id="play-bots-btn" class="btn btn-primary btn-sm btn-bots" onclick="createBotGame()">Play
+              Solo</button>
+          </div>
+
           <div class="join-row">
-            <input type="text" id="room-code-input" placeholder="Room Code" maxlength="6"
-              class="input-field input-small">
-            <button id="join-room-btn" class="btn btn-secondary">Join</button>
+            <input type="text" id="room-code-input" class="input-field input-small" placeholder="ROOM CODE"
+              maxlength="6" />
+            <button id="join-room-btn" class="btn btn-secondary" onclick="joinRoom()">Join</button>
           </div>
         </div>
       </div>
@@ -82,7 +93,8 @@
         <p class="share-hint">Share this code with friends!</p>
         <div id="lobby-players" class="lobby-players"></div>
         <p class="player-count">Players: <span id="player-count">1</span>/6</p>
-        <div class="bot-controls" id="bot-controls">
+
+        <div class="bot-controls" id="bot-controls-lobby">
           <label class="bot-label">Add Bots:</label>
           <div class="bot-count-btns">
             <button class="bot-count-btn" data-count="1">1</button>
@@ -91,6 +103,7 @@
           </div>
           <button id="add-bots-btn" class="btn btn-bots btn-sm">🤖 Add Bots</button>
         </div>
+
         <button id="start-game-btn" class="btn btn-primary">Start Battle</button>
         <p class="wait-msg" id="wait-msg">Waiting for players...</p>
       </div>
@@ -128,7 +141,7 @@
 
     <!-- Health Bar -->
     <div class="hud-health">
-      <div class="health-icon">❤</div>
+      <div class="health-icon" id="health-icon-container"></div>
       <div class="health-bar-container">
         <div class="health-bar-fill" id="health-bar"></div>
         <span class="health-text" id="health-text">100</span>
@@ -137,14 +150,14 @@
 
     <!-- Kill Count -->
     <div class="hud-kills">
-      <span class="kills-icon">💀</span>
+      <span class="kills-icon" id="kills-icon-container"></span>
       <span id="kill-count">0</span>
     </div>
 
     <!-- Active Powerup Indicator (large circle) -->
     <div class="powerup-indicator hidden" id="hud-effect">
       <div class="powerup-circle" id="powerup-circle">
-        <span class="powerup-icon" id="effect-icon">⚡</span>
+        <div class="powerup-icon" id="effect-icon-container"></div>
         <div class="powerup-timer-ring" id="effect-timer"></div>
       </div>
       <span class="powerup-label" id="effect-text">Speed Boost</span>
@@ -163,7 +176,7 @@
     <!-- Weapon HUD -->
     <div class="weapon-hud hidden" id="weapon-hud">
       <div class="weapon-icon-box" id="weapon-icon-box">
-        <span class="weapon-icon" id="weapon-icon">🗡️</span>
+        <div class="weapon-icon" id="weapon-icon-container"></div>
       </div>
       <div class="weapon-info">
         <span class="weapon-name" id="weapon-name">Silver Dagger</span>
@@ -203,6 +216,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/assets.js"></script>
   <script src="/js/ghosts.js"></script>
   <script src="/js/arena.js"></script>
   <script src="/js/powerups.js"></script>
@@ -212,6 +226,15 @@
   <script src="/js/audioManager.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/game.js"></script>
+  <script>
+    // Initialize Icons
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.Assets) {
+        Assets.inject('health-icon-container', 'HEART');
+        Assets.inject('kills-icon-container', 'SKULL');
+      }
+    });
+  </script>
 </body>
 
 </html>

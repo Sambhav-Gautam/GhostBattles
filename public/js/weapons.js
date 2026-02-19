@@ -10,7 +10,7 @@ const Weapons = (() => {
     const WEAPON_CONFIGS = {
         holyWater: {
             name: 'Holy Water',
-            icon: '💧',
+            icon: 'HOLY_WATER',
             damage: 20,
             cooldown: 500,
             range: 6,
@@ -22,7 +22,7 @@ const Weapons = (() => {
         },
         sacredCross: {
             name: 'Sacred Cross',
-            icon: '✝️',
+            icon: 'SACRED_CROSS',
             damage: 35,
             cooldown: 1000,
             range: 8,
@@ -34,7 +34,7 @@ const Weapons = (() => {
         },
         silverDagger: {
             name: 'Silver Dagger',
-            icon: '🗡️',
+            icon: 'SILVER_DAGGER',
             damage: 50,
             cooldown: 1200,
             range: 5,
@@ -46,7 +46,7 @@ const Weapons = (() => {
         },
         bindingChains: {
             name: 'Binding Chains',
-            icon: '⛓️',
+            icon: 'BINDING_CHAINS',
             damage: 40,
             cooldown: 1500,
             range: 10,
@@ -58,7 +58,7 @@ const Weapons = (() => {
         },
         sageSmudge: {
             name: 'Sage Smudge',
-            icon: '🌿',
+            icon: 'SAGE_SMUDGE',
             damage: 60,
             cooldown: 2000,
             range: 7,
@@ -70,7 +70,7 @@ const Weapons = (() => {
         },
         exorcistBible: {
             name: "Exorcist's Bible",
-            icon: '📖',
+            icon: 'EXORCIST_BIBLE',
             damage: 100,
             cooldown: 4000,
             range: 8,
@@ -435,7 +435,7 @@ const Weapons = (() => {
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = '#' + config.projColor.toString(16).padStart(6, '0');
         ctx.shadowBlur = 12;
-        ctx.fillText(config.icon + ' ' + config.name, 128, 40);
+        ctx.fillText(config.name, 128, 40);
         const tex = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.9 });
         const sprite = new THREE.Sprite(spriteMat);

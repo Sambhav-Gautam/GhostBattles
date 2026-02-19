@@ -908,6 +908,13 @@
             }
         });
 
+        socket.on('room-joined', (data) => {
+            localPlayerId = data.playerId;
+            localGhostType = data.ghostType;
+            showLobby(data.code);
+            spawnLocalPlayer(data.spawn, data.ghostType);
+        });
+
         socket.on('player-joined', (data) => {
             if (data.id !== localPlayerId) {
                 spawnRemotePlayer(data.id, {

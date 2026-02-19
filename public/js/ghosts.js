@@ -88,22 +88,46 @@ const GhostFactory = (() => {
     function createGhostBody(config) {
         const group = new THREE.Group();
 
-        // Main body — Low Poly Sphere
+        // Main body — Ragged "Robe" Shape (Procedural Noise)
         const bodyGeo = getCachedGeo('ghostBody', () => {
-            const geo = new THREE.SphereGeometry(0.7, 8, 8);
-            const posArr = geo.attributes.position.array;
-            for (let i = 0; i < posArr.length; i += 3) {
-                const y = posArr[i + 1];
-                if (y > 0) {
-                    posArr[i + 1] *= 1.6; // taller top
-                } else {
-                    const angle = Math.atan2(posArr[i + 2], posArr[i]);
-                    const wave = 1 + 0.15 * Math.sin(angle * 5);
-                    posArr[i] *= wave * (1 + y * 0.3);
-                    posArr[i + 2] *= wave * (1 + y * 0.3);
-                    posArr[i + 1] *= 1.2;
+            // Base cylinder/cone for the robe
+            const geo = new THREE.CylinderGeometry(0.1, 0.6, 1.4, 16, 8, true);
+            const pos = geo.attributes.position;
+            const vertex = new THREE.Vector3();
+
+            // Apply noise to vertices to make it ragged
+            for (let i = 0; i < pos.count; i++) {
+                vertex.fromBufferAttribute(pos, i);
+
+                // Expansion at bottom (skirt)
+                const yNorm = (vertex.y + 0.7) / 1.4; // 0 at bottom, 1 at top
+
+                // Wobble
+                const angle = Math.atan2(vertex.z, vertex.x);
+                const r = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
+
+                // Noise function simulation (sin/cos stack)
+                const noise = Math.sin(angle * 3 + vertex.y * 4) * 0.1
+                    + Math.cos(angle * 5 - vertex.y * 2) * 0.05
+                    + Math.sin(vertex.y * 10) * 0.02;
+
+                // Apply raggedness mostly to bottom
+                const raggedness = (1 - yNorm) * 0.3;
+                vertex.x += Math.cos(angle) * noise * raggedness;
+                vertex.z += Math.sin(angle) * noise * raggedness;
+
+                // Flatten top/round head area
+                if (yNorm > 0.8) {
+                    // Spherize the top
+                    const headFactor = (yNorm - 0.8) * 5; // 0 to 1
+                    vertex.x *= (1 - headFactor * 0.2);
+                    vertex.z *= (1 - headFactor * 0.2);
+                    // vertex.y += headFactor * 0.2; // domes the top
                 }
+
+                pos.setXYZ(i, vertex.x, vertex.y, vertex.z);
             }
+
             geo.computeVertexNormals();
             return geo;
         });
@@ -136,11 +160,11 @@ const GhostFactory = (() => {
         // Let's just keep new for eyes as they are small, or cache by color integer.
 
         const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.2, 0.8, 0.55);
+        leftEye.position.set(-0.15, 0.45, 0.35);
         group.add(leftEye);
 
         const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.2, 0.8, 0.55);
+        rightEye.position.set(0.15, 0.45, 0.35);
         group.add(rightEye);
 
         // Eye glow
@@ -356,11 +380,13 @@ const GhostFactory = (() => {
         // Name tag
         if (name) {
             const tag = createNameTag(name, config);
+            tag.position.y = 1.3; // Lower tag
             ghost.add(tag);
         }
 
         // Health bar
         const hpBar = createHealthBar();
+        hpBar.position.y = 1.1; // Lower bar
         ghost.add(hpBar);
 
         // Shadow (Disabled for extreme optimization, but flag kept if shadows re-enabled later)

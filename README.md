@@ -2,11 +2,20 @@
 
 **Ghost Battles** is a fast-paced, browser-based multiplayer arena shooter where players control spectral entities and battle for dominance. Built with **Node.js**, **Socket.IO**, and **Three.js**, it features real-time combat, unique ghost abilities, and a custom-built physics and collision system.
 
-![Ghost Battles Screenshot](https://via.placeholder.com/800x450?text=Ghost+Battles+Gameplay) *(Add a real screenshot here)*
+![Ghost Battles UI](https://via.placeholder.com/800x450/0f0f19/a855f7?text=Ghost+Battles:+New+Glassmorphic+UI)
 
 ## 🎮 Features
 
--   **Real-Time Multiplayer**: Seamless synchronization using Socket.IO with client-side interpolation for smooth movement.
+-   **Visual Overhaul**:
+    -   **Glassmorphic UI**: Sleek, modern interface with frosted glass effects and dynamic animations.
+    -   **Particle Effects**: Atmospheric background particles and glowing text effects.
+-   **Smart Bots**: 
+    -   Server-controlled AI that actively hunts players across the map.
+    -   Intelligent combat behavior: uses cover, strafes, and scavenges weapons/powerups.
+-   **Real-Time Multiplayer**: 
+    -   Seamless synchronization using Socket.IO.
+    -   **Robust Lobby System**: Create private rooms, join via code, and play solo with bots.
+    -   **Client-Side Prediction**: Smooth movement interpolation for high-action gameplay.
 -   **Unique Ghost Classes**:
     -   **Wraith**: High speed, dash ability.
     -   **Phantom**: Stealth mechanics (Invisibility).
@@ -16,7 +25,6 @@
     -   Multiple weapon types (Holy Water, Silver Daggers, Exorcist Bible, etc.).
     -   Powerups for health, speed, and damage boosts.
     -   Melee and ranged attacks with custom particle effects.
--   **Smart Bots**: Server-controlled AI bots that hunt players, scavenge weapons, and fight back.
 -   **Persistent Stats**: SQLite database tracks kills, deaths, and wins across sessions.
 -   **Audio System**: Custom Web Audio API synthesizer for procedural sound effects (no external assets).
 
