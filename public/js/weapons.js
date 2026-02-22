@@ -111,14 +111,14 @@ const Weapons = (() => {
         const g = new THREE.Group();
 
         // Vial body (elongated sphere)
-        const bodyGeo = new THREE.SphereGeometry(0.28, 6, 6);
+        const bodyGeo = new THREE.SphereGeometry(0.28, 4, 4); // EXTREME OPTIMIZATION: 6 -> 4
         bodyGeo.scale(1, 1.6, 1);
         const body = new THREE.Mesh(bodyGeo, stdMat(0x1a3a5c, 0x60a5fa, 0.6));
         body.position.y = 0.8;
         g.add(body);
 
         // Liquid inside (slightly smaller, blue glow)
-        const liquidGeo = new THREE.SphereGeometry(0.22, 6, 6);
+        const liquidGeo = new THREE.SphereGeometry(0.22, 4, 4); // EXTREME OPTIMIZATION: 6 -> 4
         liquidGeo.scale(1, 1.2, 1);
         const liquid = new THREE.Mesh(liquidGeo, glowMat(0x60a5fa, 0.7));
         liquid.position.y = 0.75;
@@ -133,7 +133,7 @@ const Weapons = (() => {
 
         // Droplets orbiting
         for (let i = 0; i < 4; i++) {
-            const dropGeo = new THREE.SphereGeometry(0.06, 6, 6);
+            const dropGeo = new THREE.TetrahedronGeometry(0.06, 0); // EXTREME OPTIMIZATION
             const drop = new THREE.Mesh(dropGeo, glowMat(0x93c5fd, 0.6));
             drop.userData.orbitPhase = (i / 4) * Math.PI * 2;
             drop.userData.orbitRadius = 0.5;
@@ -169,7 +169,7 @@ const Weapons = (() => {
 
         // Holy aura rings
         for (let i = 0; i < 3; i++) {
-            const ringGeo = new THREE.TorusGeometry(0.25 + i * 0.12, 0.015, 8, 24);
+            const ringGeo = new THREE.TorusGeometry(0.25 + i * 0.12, 0.015, 4, 12); // EXTREME OPTIMIZATION
             const ring = new THREE.Mesh(ringGeo, glowMat(0xffd700, 0.25 - i * 0.06));
             ring.position.y = 0.9;
             ring.userData.haloRing = true;
@@ -217,7 +217,7 @@ const Weapons = (() => {
         g.add(handle);
 
         // Pommel gem
-        const pommelGeo = new THREE.SphereGeometry(0.06, 8, 8);
+        const pommelGeo = new THREE.SphereGeometry(0.06, 4, 4); // EXTREME OPTIMIZATION
         const pommel = new THREE.Mesh(pommelGeo, glowMat(0xc0c0c0, 0.8));
         pommel.position.y = 0.42;
         g.add(pommel);
@@ -240,7 +240,7 @@ const Weapons = (() => {
 
         // Chain links (torus shapes stacked)
         for (let i = 0; i < 5; i++) {
-            const linkGeo = new THREE.TorusGeometry(0.12, 0.035, 8, 12);
+            const linkGeo = new THREE.TorusGeometry(0.12, 0.035, 4, 6); // EXTREME OPTIMIZATION
             const linkMat = stdMat(0x7c3aed, 0xa78bfa, 0.5);
             linkMat.metalness = 0.8;
             const link = new THREE.Mesh(linkGeo, linkMat);
@@ -613,7 +613,7 @@ const Weapons = (() => {
         const g = new THREE.Group();
 
         // Central water orb
-        const orbGeo = new THREE.SphereGeometry(0.2, 10, 10);
+        const orbGeo = new THREE.SphereGeometry(0.2, 5, 5); // EXTREME OPTIMIZATION
         const orbMat = new THREE.MeshBasicMaterial({
             color: 0x60a5fa,
             transparent: true, opacity: 0.8,
@@ -623,7 +623,7 @@ const Weapons = (() => {
 
         // Surrounding splash droplets
         for (let i = 0; i < 6; i++) {
-            const dropGeo = new THREE.SphereGeometry(0.07, 6, 6);
+            const dropGeo = new THREE.TetrahedronGeometry(0.07, 0); // EXTREME OPTIMIZATION
             const drop = new THREE.Mesh(dropGeo, new THREE.MeshBasicMaterial({
                 color: 0x93c5fd,
                 transparent: true, opacity: 0.6,
@@ -635,7 +635,7 @@ const Weapons = (() => {
         }
 
         // Mist aura
-        const mistGeo = new THREE.SphereGeometry(0.5, 8, 8);
+        const mistGeo = new THREE.SphereGeometry(0.5, 4, 4); // EXTREME OPTIMIZATION
         g.add(new THREE.Mesh(mistGeo, glowMat(0x60a5fa, 0.12)));
 
         // Light
@@ -722,7 +722,7 @@ const Weapons = (() => {
 
         // Chain links spiraling
         for (let i = 0; i < 4; i++) {
-            const linkGeo = new THREE.TorusGeometry(0.08, 0.025, 6, 8);
+            const linkGeo = new THREE.TorusGeometry(0.08, 0.025, 4, 6); // EXTREME OPTIMIZATION
             const linkMat = new THREE.MeshBasicMaterial({
                 color: 0xa78bfa,
                 transparent: true, opacity: 0.8,
@@ -809,7 +809,7 @@ const Weapons = (() => {
 
         // Golden halo rings (3 crossing)
         for (let i = 0; i < 3; i++) {
-            const haloGeo = new THREE.TorusGeometry(0.35, 0.02, 8, 24);
+            const haloGeo = new THREE.TorusGeometry(0.35, 0.02, 4, 12); // EXTREME OPTIMIZATION
             const halo = new THREE.Mesh(haloGeo, glowMat(0xffd700, 0.6));
             halo.rotation.x = (i / 3) * Math.PI;
             halo.rotation.y = (i / 3) * Math.PI * 0.5;
@@ -832,7 +832,7 @@ const Weapons = (() => {
         }
 
         // Intense outer aura
-        const auraGeo = new THREE.SphereGeometry(0.7, 10, 10);
+        const auraGeo = new THREE.SphereGeometry(0.7, 5, 5); // EXTREME OPTIMIZATION
         g.add(new THREE.Mesh(auraGeo, glowMat(0xffd700, 0.12)));
 
         // Massive light

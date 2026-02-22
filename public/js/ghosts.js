@@ -91,7 +91,7 @@ const GhostFactory = (() => {
         // Main body — Ragged "Robe" Shape (Procedural Noise)
         const bodyGeo = getCachedGeo('ghostBody', () => {
             // Base cylinder/cone for the robe
-            const geo = new THREE.CylinderGeometry(0.1, 0.6, 1.4, 16, 8, true);
+            const geo = new THREE.CylinderGeometry(0.1, 0.6, 1.4, 8, 4, true); // EXTREME OPTIMIZATION: 16x8 -> 8x4
             const pos = geo.attributes.position;
             const vertex = new THREE.Vector3();
 
@@ -154,7 +154,7 @@ const GhostFactory = (() => {
         group.add(body);
 
         // Eyes (Low Poly)
-        const eyeGeo = getCachedGeo('ghostEye', () => new THREE.SphereGeometry(0.08, 4, 4));
+        const eyeGeo = getCachedGeo('ghostEye', () => new THREE.TetrahedronGeometry(0.08, 0)); // EXTREME OPTIMIZATION
         const eyeMat = new THREE.MeshBasicMaterial({ color: config.eyeColor }); // simple enough to not cache or reuse if needed, but safer to new
         // Actually, we can reuse eye material if color matches, but configs are static. 
         // Let's just keep new for eyes as they are small, or cache by color integer.
@@ -168,7 +168,7 @@ const GhostFactory = (() => {
         group.add(rightEye);
 
         // Eye glow
-        const glowGeo = getCachedGeo('eyeGlow', () => new THREE.SphereGeometry(0.14, 4, 4));
+        const glowGeo = getCachedGeo('eyeGlow', () => new THREE.TetrahedronGeometry(0.14, 0)); // EXTREME OPTIMIZATION
         const glowMat = new THREE.MeshBasicMaterial({
             color: config.eyeColor,
             transparent: true,
@@ -187,7 +187,7 @@ const GhostFactory = (() => {
 
     function addWraithTendrils(group, config) {
         // Flowing cloak tendrils hanging from body
-        const tendrilGeo = getCachedGeo('wraithTendril', () => new THREE.CylinderGeometry(0.04, 0.01, 0.8, 4));
+        const tendrilGeo = getCachedGeo('wraithTendril', () => new THREE.CylinderGeometry(0.04, 0.01, 0.8, 3)); // EXTREME OPTIMIZATION: 4 -> 3
         // Material reuse?
         // Since alpha/color depends on config, and config is static per type, we can cache material by type name.
         const matKey = `tendril_${config.name}`;
@@ -218,7 +218,7 @@ const GhostFactory = (() => {
 
     function addPhantomWisps(group, config) {
         // Wispy arm extensions
-        const armGeo = getCachedGeo('phantomArm', () => new THREE.CylinderGeometry(0.08, 0.02, 0.9, 4));
+        const armGeo = getCachedGeo('phantomArm', () => new THREE.CylinderGeometry(0.08, 0.02, 0.9, 3)); // EXTREME OPTIMIZATION: 4 -> 3
         const matKey = `wisp_${config.name}`;
         if (!matCache[matKey]) {
             matCache[matKey] = new THREE.MeshPhongMaterial({
@@ -241,7 +241,7 @@ const GhostFactory = (() => {
 
     function addShadeSpikes(group, config) {
         // Angular spikes on body
-        const spikeGeo = getCachedGeo('shadeSpike', () => new THREE.ConeGeometry(0.06, 0.4, 4));
+        const spikeGeo = getCachedGeo('shadeSpike', () => new THREE.ConeGeometry(0.06, 0.4, 3)); // EXTREME OPTIMIZATION: 4 -> 3
         const matKey = `spike_${config.name}`;
         if (!matCache[matKey]) {
             matCache[matKey] = new THREE.MeshPhongMaterial({
@@ -269,7 +269,7 @@ const GhostFactory = (() => {
 
     function addSpecterSheetEdges(group, config) {
         // Flowing sheet edges
-        const edgeGeo = getCachedGeo('specterEdge', () => new THREE.RingGeometry(0.6, 0.9, 12, 1));
+        const edgeGeo = getCachedGeo('specterEdge', () => new THREE.RingGeometry(0.6, 0.9, 8, 1)); // EXTREME OPTIMIZATION: 12 -> 8
         const matKey = `edge_${config.name}`;
         if (!matCache[matKey]) {
             matCache[matKey] = new THREE.MeshPhongMaterial({
@@ -449,5 +449,22 @@ const GhostFactory = (() => {
         }
     }
 
-    return { create, animate, updateHealthBar, GHOST_CONFIGS };
+    function setOpacity(ghost, opacity) {
+        if (!ghost) return;
+        ghost.traverse((child) => {
+            if (child.isMesh && child.material && child.name !== 'healthFill' && child.name !== 'healthBg') {
+                if (opacity < 1.0) {
+                    child.material.transparent = true;
+                    child.material.opacity = opacity;
+                } else {
+                    // Reset to default
+                    const defOp = ghost.userData.config ? ghost.userData.config.opacity : 1.0;
+                    child.material.opacity = defOp;
+                    if (defOp === 1.0) child.material.transparent = false;
+                }
+            }
+        });
+    }
+
+    return { create, animate, updateHealthBar, setOpacity, GHOST_CONFIGS };
 })();

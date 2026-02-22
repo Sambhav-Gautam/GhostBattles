@@ -19,6 +19,7 @@ const Combat = (() => {
     const particles = [];
     // Active ultimate VFX objects (auto-cleaned)
     const ultimateVFX = [];
+    const activeExplosions = [];
 
     // ── Attack VFX Particles (Pooled) ────────────────────
     const particlePool = [];
@@ -27,7 +28,7 @@ const Combat = (() => {
     let particleGeo = null;
 
     function getParticle(scene) {
-        if (!particleGeo) particleGeo = new THREE.SphereGeometry(0.08, 6, 6);
+        if (!particleGeo) particleGeo = new THREE.TetrahedronGeometry(0.08, 0); // EXTREME OPTIMIZATION: 4 polys instead of 128
 
         if (particlePool.length > 0) {
             const p = particlePool.pop();
@@ -209,6 +210,55 @@ const Combat = (() => {
                 ultimateVFX.splice(i, 1);
             }
         }
+
+        for (let i = activeExplosions.length - 1; i >= 0; i--) {
+            const vfx = activeExplosions[i];
+            const elapsed = Date.now() - vfx.startTime;
+            const t = Math.min(1, elapsed / vfx.duration);
+
+            const ringScale = 1 + t * 5;
+            vfx.ring.scale.set(ringScale, ringScale, 1);
+            vfx.ring.material.opacity = 0.9 * (1 - t);
+
+            vfx.pillar.material.opacity = 0.4 * (1 - t);
+            vfx.pillar.scale.x = 1 + t * 2;
+            vfx.pillar.scale.z = vfx.pillar.scale.x;
+
+            if (t >= 1) {
+                vfx.scene.remove(vfx.ring);
+                vfx.scene.remove(vfx.pillar);
+                vfx.ring.geometry.dispose(); vfx.ring.material.dispose();
+                vfx.pillar.geometry.dispose(); vfx.pillar.material.dispose();
+                activeExplosions.splice(i, 1);
+            }
+        }
+    }
+
+    function spawnDeathExplosion(scene, position, color) {
+        const center = new THREE.Vector3(position.x, 0.5, position.z);
+
+        const ringGeo = new THREE.RingGeometry(0.2, 0.6, 16);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: color, transparent: true, opacity: 0.9,
+            side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.copy(center);
+        scene.add(ring);
+
+        const pillarGeo = new THREE.CylinderGeometry(0.5, 0.5, 12, 8, 1, true);
+        const pillarMat = new THREE.MeshBasicMaterial({
+            color: color, transparent: true, opacity: 0.6,
+            blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide
+        });
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(center.x, 6, center.z);
+        scene.add(pillar);
+
+        spawnParticles(scene, center, color, 45, 1.2);
+
+        activeExplosions.push({ ring, pillar, startTime: Date.now(), duration: 600, scene });
     }
 
     // Reuse geometries for Projectiles
@@ -217,8 +267,8 @@ const Combat = (() => {
     let projGlowGeo = null;
 
     function fireProjectile(scene, startPos, direction, color, attackType, socket, targetId) {
-        if (!projOrbGeo) projOrbGeo = new THREE.SphereGeometry(1, 8, 8);
-        if (!projGlowGeo) projGlowGeo = new THREE.SphereGeometry(1, 8, 8);
+        if (!projOrbGeo) projOrbGeo = new THREE.TetrahedronGeometry(1, 0); // EXTREME OPTIMIZATION: 4 polys
+        if (!projGlowGeo) projGlowGeo = new THREE.TetrahedronGeometry(1, 0); // EXTREME OPTIMIZATION: 4 polys
 
         const speed = attackType === 'special' ? 30 : 22;
         const size = attackType === 'special' ? 0.35 : 0.2;
@@ -453,6 +503,7 @@ const Combat = (() => {
         weaponAttack,
         spawnParticles,
         spawnUltimateVFX,
+        spawnDeathExplosion,
         fireProjectile,
         updateParticles,
         updateProjectiles,

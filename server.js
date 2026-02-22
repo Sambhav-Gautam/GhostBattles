@@ -97,7 +97,7 @@ function addBot(room) {
         rotation: { y: Math.random() * Math.PI * 2 },
         health: 100, kills: 0, alive: true,
         lastAbilityTime: 0,
-        animState: 'idle', effects: {},
+        animState: 'idle', effects: { invulnerable: Date.now() + 3000 },
         isBot: true,
         // AI state
         ai: {
@@ -278,316 +278,237 @@ function cleanupRoom(code) {
 // ═══════════════════════════════════════════════
 //  BOT AI BRAIN — runs every server tick for each bot
 // ═══════════════════════════════════════════════
+// --- Bot AI System ──────────────────────────────────────────
 function updateBots(room, dt) {
     const now = Date.now();
-    const BOT_SPEED = 8;
-    // Optimization: Run decision logic less frequently to save CPU
-    const DECISION_INTERVAL = 250; // 4 times per second (was 100ms)
+    const BOT_SPEED = 4.0; // User requested 4
+    // Increased throttle to save CPU. 400ms is perfectly fine for bot reaction time.
+    const DECISION_INTERVAL = 400;
+
+    // Pre-calculate weapons and powerups to avoid O(N*M) lookups
+    let availableWeapons = [];
+    if (room.weapons.size > 0) {
+        room.weapons.forEach((wp, wpId) => availableWeapons.push({ id: wpId, wp }));
+    }
+
+    let availablePowerups = [];
+    if (room.powerups.size > 0) {
+        room.powerups.forEach((pw, pwId) => availablePowerups.push({ id: pwId, pw }));
+    }
 
     room.players.forEach((bot, botId) => {
         if (!bot.isBot || !bot.alive) return;
         const ai = bot.ai;
 
-        // ── DECISION PHASE (Throttled) ──
-        if (now - ai.lastDecisionTime > DECISION_INTERVAL) {
-            ai.lastDecisionTime = now;
+        // --- 1. DECISION PHASE (Throttled & Staggered) ---
+        // Stagger bot decision times so they don't all compute on the exact same frame
+        const staggeredNow = now + (botId.charCodeAt(0) * 10 || 0);
 
-            // 1. Target Selection (AGGRESSIVE HUNTER)
-            let currentTarget = ai.targetId ? room.players.get(ai.targetId) : null;
-            let distToTarget = Infinity;
-            let distToTargetSq = Infinity;
+        if (staggeredNow - (ai.lastDecisionTime || 0) > DECISION_INTERVAL) {
+            ai.lastDecisionTime = staggeredNow;
 
-            // Validate current target
-            if (currentTarget && currentTarget.alive) {
-                const dx = currentTarget.position.x - bot.position.x;
-                const dz = currentTarget.position.z - bot.position.z;
-                distToTargetSq = dx * dx + dz * dz;
-                distToTarget = Math.sqrt(distToTargetSq);
-
-                // Lose interest ONLY if extremely far (cross-map)
-                if (distToTarget > 150) {
-                    currentTarget = null;
-                    ai.targetId = null;
+            // Target Priority: Closest Player within Aggro Radius
+            let nearestId = null;
+            let nearestDistSq = Infinity;
+            room.players.forEach((other, otherId) => {
+                if (otherId === botId || !other.alive) return;
+                const dx = other.position.x - bot.position.x;
+                const dz = other.position.z - bot.position.z;
+                const distSq = dx * dx + dz * dz;
+                // Aggro radius: 20 units (400 distSq).
+                if (distSq < nearestDistSq && distSq < 400) {
+                    nearestDistSq = distSq;
+                    nearestId = otherId;
                 }
-            } else {
-                currentTarget = null;
-                ai.targetId = null;
-            }
+            });
+            ai.targetId = nearestId;
 
-            // If no target, SCAN GLOBALLY for the nearest enemy
-            if (!currentTarget) {
-                let nearestId = null, nearestDistSq = Infinity;
-                for (const [otherId, other] of room.players) {
-                    if (otherId === botId || !other.alive) continue;
+            // Passive Item Vacuum (Optimized Array Check)
+            for (let i = 0; i < availableWeapons.length; i++) {
+                const item = availableWeapons[i];
+                if (!room.weapons.has(item.id)) continue; // already taken
 
-                    const dx = other.position.x - bot.position.x;
-                    const dz = other.position.z - bot.position.z;
-                    const dSq = dx * dx + dz * dz;
-
-                    if (dSq < nearestDistSq) {
-                        nearestDistSq = dSq;
-                        nearestId = otherId;
+                const dx = item.wp.position.x - bot.position.x;
+                const dz = item.wp.position.z - bot.position.z;
+                if (dx * dx + dz * dz < 25) { // 5 units squared
+                    if (!ai.weapon) {
+                        room.weapons.delete(item.id);
+                        ai.weapon = { type: item.wp.weaponType, ammo: getWeaponAmmo(item.wp.weaponType) };
+                        io.to(room.code).emit('weapon-picked', { weaponId: item.id, playerId: botId, weaponType: item.wp.weaponType });
+                        break; // Only pick up one
                     }
                 }
-
-                if (nearestId) {
-                    ai.targetId = nearestId;
-                    currentTarget = room.players.get(nearestId);
-                    distToTargetSq = nearestDistSq;
-                    distToTarget = Math.sqrt(nearestDistSq);
-                }
             }
 
-            // 2. Resource Scanning (Powerups/Weapons)
-            // Prioritize weapons if unarmed!
-            let nearestPowerup = null;
-            let nearestWeapon = null;
+            for (let i = 0; i < availablePowerups.length; i++) {
+                const item = availablePowerups[i];
+                if (!room.powerups.has(item.id)) continue;
 
-            // Find nearest weapon if we don't have one
-            if (!ai.weapon) {
-                let bestWpDistSq = Infinity;
-                room.weapons.forEach((wp, wpId) => {
-                    const dx = wp.position.x - bot.position.x;
-                    const dz = wp.position.z - bot.position.z;
-                    const dSq = dx * dx + dz * dz;
-                    if (dSq < bestWpDistSq) {
-                        bestWpDistSq = dSq;
-                        nearestWeapon = { id: wpId, ...wp, dist: Math.sqrt(dSq) };
-                    }
-                });
-            }
-
-            // Find nearest powerup if hurt
-            if (bot.health < 60) {
-                let bestPwDistSq = Infinity;
-                room.powerups.forEach((pw, pwId) => {
-                    const dx = pw.position.x - bot.position.x;
-                    const dz = pw.position.z - bot.position.z;
-                    const dSq = dx * dx + dz * dz;
-                    if (dSq < bestPwDistSq) {
-                        bestPwDistSq = dSq;
-                        nearestPowerup = { id: pwId, ...pw, dist: Math.sqrt(dSq) };
-                    }
-                });
-            }
-
-            // 3. State & Logic Determination
-            const attackRange = ai.weapon ? getWeaponRange(ai.weapon.type) : BOT_MELEE_RANGE;
-
-            // Priority 1: Get a weapon if unarmed and one is relatively close (< 40 units)
-            if (!ai.weapon && nearestWeapon && nearestWeapon.dist < 40) {
-                ai.state = 'roaming';
-                ai.weaponTarget = nearestWeapon;
-            }
-            // Priority 2: Combat (Attack if in range, Chase if out of range)
-            else if (currentTarget) {
-                if (distToTarget <= attackRange) {
-                    ai.state = 'attacking';
-                    // If using melee, we must be VERY close. If ranged, we can stand back.
-                    // But 'attacking' state usually implies "shoot/swing". 
-                    // We handle movement execution below.
-                } else {
-                    ai.state = 'chasing';
-                }
-            }
-            // Priority 3: Heal if hurt and powerup nearby
-            else if (bot.health < 60 && nearestPowerup && nearestPowerup.dist < 30) {
-                ai.state = 'roaming'; // repurpose roaming to move to powerup
-                ai.chaseTarget = nearestPowerup; // hacky reuse of chaseTarget or just move to pos
-                ai.weaponTarget = null; // ensure we don't chase weapon
-                ai.powerupTarget = nearestPowerup;
-            }
-            // Priority 4: Roam/Idle
-            else {
-                ai.state = 'roaming';
-                ai.weaponTarget = null;
-            }
-
-            // 4. Pickup Execution
-            // Weapon
-            if (!ai.weapon && nearestWeapon && nearestWeapon.dist < 2.5) {
-                const wp = room.weapons.get(nearestWeapon.id);
-                if (wp) {
-                    room.weapons.delete(nearestWeapon.id);
-                    ai.weapon = { type: wp.weaponType, ammo: getWeaponAmmo(wp.weaponType) };
-                    io.to(room.code).emit('weapon-picked', { weaponId: nearestWeapon.id, playerId: botId, weaponType: wp.weaponType });
-                    ai.weaponTarget = null;
-                }
-            }
-            // Powerup (using the same distance check)
-            if (nearestPowerup && nearestPowerup.dist < 2.5) {
-                const pw = room.powerups.get(nearestPowerup.id);
-                if (pw) {
-                    room.powerups.delete(nearestPowerup.id);
-                    switch (pw.tier) {
+                const dx = item.pw.position.x - bot.position.x;
+                const dz = item.pw.position.z - bot.position.z;
+                if (dx * dx + dz * dz < 25) { // 5 units squared
+                    room.powerups.delete(item.id);
+                    switch (item.pw.tier) {
                         case 1: bot.health = Math.min(100, bot.health + 15); break;
                         case 2: bot.health = Math.min(100, bot.health + 30); bot.effects.speedBoost = now + 5000; break;
                         case 3: bot.health = 100; bot.effects.damageBoost = now + 8000; break;
                     }
-                    io.to(room.code).emit('powerup-picked', { powerupId: nearestPowerup.id, playerId: botId, tier: pw.tier, newHealth: bot.health });
+                    io.to(room.code).emit('powerup-picked', { powerupId: item.id, playerId: botId, tier: item.pw.tier, newHealth: bot.health });
+                    break;
                 }
             }
 
-            // 5. Stuck Detection
-            if (ai.lastPosCheck) {
-                const movedDist = Math.abs(bot.position.x - ai.lastPosCheck.x) + Math.abs(bot.position.z - ai.lastPosCheck.z);
-                // Only count as stuck if we wanted to move (chasing/roaming) but didn't
-                if (movedDist < 0.2 && (ai.state === 'chasing' || ai.state === 'roaming')) {
-                    ai.stuckCounter++;
-                } else {
-                    ai.stuckCounter = 0;
-                }
-            }
-            ai.lastPosCheck = { x: bot.position.x, z: bot.position.z };
+            // Stuck Detection
+            const movedDist = Math.abs(bot.position.x - (ai.lastPosX || 0)) + Math.abs(bot.position.z - (ai.lastPosZ || 0));
 
-            if (ai.stuckCounter > 4) { // ~1 second stuck
-                ai.forceMoveDir = { x: Math.random() - 0.5, z: Math.random() - 0.5 };
-                ai.forceMoveTime = now + 1500;
+            // Only count as stuck if they are far from target but failing to move
+            let isStuck = false;
+            if (ai.targetId) {
+                const target = room.players.get(ai.targetId);
+                if (target) {
+                    const distToTargetSq = Math.pow(target.position.x - bot.position.x, 2) + Math.pow(target.position.z - bot.position.z, 2);
+                    // If they are further than 3 units but moved very little, they are stuck on a wall
+                    if (distToTargetSq > 9 && movedDist < 0.2) {
+                        isStuck = true;
+                    }
+                }
+            } else if (movedDist < 0.2) { // Roaming but stuck
+                isStuck = true;
+            }
+
+            if (isStuck) {
+                ai.stuckCounter = (ai.stuckCounter || 0) + 1;
+            } else {
+                ai.stuckCounter = 0;
+            }
+
+            ai.lastPosX = bot.position.x;
+            ai.lastPosZ = bot.position.z;
+
+            // Reduced stuck counter threshold so they wiggle free faster
+            if (ai.stuckCounter > 3) { // Roughly 600ms stuck
+                ai.forceMoveDir = { x: (Math.random() - 0.5) * 2, z: (Math.random() - 0.5) * 2 };
+                ai.forceMoveTime = now + 800; // Shorter wiggle
                 ai.stuckCounter = 0;
             }
         } // End Decision Phase
 
-        // ── MOVEMENT & COMBAT PHASE ──
+        // --- 2. MOVEMENT & COMBAT CONTINUOUS PHASE ---
         let moveX = 0, moveZ = 0;
+        let speedMult = 1.0;
 
-        // Forced un-stuck movement
+        // Speed Modifiers
+        if (bot.effects && bot.effects.speedBoost && now < bot.effects.speedBoost) speedMult = 1.3; // NERF: powerup speed
+        if (ai.weapon) speedMult *= 0.85; // slightly slower when holding massive weapons
+        if (!ai.weapon) speedMult *= 1.0; // NERF: completely removed speed boost for bare-handed bots
+
+        const target = ai.targetId ? room.players.get(ai.targetId) : null;
+        let isAttacking = false;
+
+        // Forced un-stuck movement overrides all
         if (ai.forceMoveTime && now < ai.forceMoveTime) {
             moveX = ai.forceMoveDir.x;
             moveZ = ai.forceMoveDir.z;
-            ai.state = 'roaming'; // Override state anim
-        }
-        else if (ai.state === 'fleeing' && ai.chaseTarget) {
-            const dx = ai.chaseTarget.position.x - bot.position.x;
-            const dz = ai.chaseTarget.position.z - bot.position.z;
-            const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            moveX = dx / len; moveZ = dz / len;
-        }
-        else if (ai.weaponTarget) {
-            const dx = ai.weaponTarget.position.x - bot.position.x;
-            const dz = ai.weaponTarget.position.z - bot.position.z;
-            const len = Math.sqrt(dx * dx + dz * dz) || 1;
-            moveX = dx / len; moveZ = dz / len;
-        }
-        else if (ai.state === 'chasing') {
-            const target = room.players.get(ai.targetId);
-            if (target) {
-                const dx = target.position.x - bot.position.x;
-                const dz = target.position.z - bot.position.z;
-                const dist = Math.sqrt(dx * dx + dz * dz) || 1;
-                moveX = dx / dist; moveZ = dz / dist;
-            }
-        }
-        else if (ai.state === 'attacking') {
-            const target = room.players.get(ai.targetId);
-            if (target) {
-                const dx = target.position.x - bot.position.x;
-                const dz = target.position.z - bot.position.z;
-                const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+        } else if (target) {
+            // Relentless Chase
+            const dx = target.position.x - bot.position.x;
+            const dz = target.position.z - bot.position.z;
+            const distSq = dx * dx + dz * dz;
+            const dist = Math.sqrt(distSq) || 1;
+            const dirX = dx / dist;
+            const dirZ = dz / dist;
 
-                // ── MOVEMENT DURING ATTACK ──
-                // If Melee (or no weapon), run AT them
-                if (!ai.weapon || ['holyWater', 'silverDagger', 'bindingChains'].includes(ai.weapon.type) === false) {
-                    // Actually, let's just check range. If we are far, move closer.
-                    // If we have a ranged weapon, we can strafe.
-                }
+            const attackRange = ai.weapon ? getWeaponRange(ai.weapon.type) : BOT_MELEE_RANGE;
+            const isRangedWeapon = ai.weapon && ['sageSmudge', 'exorcistBible', 'sacredCross'].includes(ai.weapon.type);
 
-                // Better logic:
-                const isRanged = ai.weapon && ['sageSmudge', 'exorcistBible', 'sacredCross'].includes(ai.weapon.type);
-
-                if (isRanged) {
-                    // Strafe, but also close in if too far
-                    const strafeAngle = Math.atan2(dz, dx) + Math.PI / 2 + Math.sin(now * 0.005);
-                    moveX = Math.cos(strafeAngle) * 0.5;
-                    moveZ = Math.sin(strafeAngle) * 0.5;
-
-                    if (dist > 15) { // If very far, move closer while strafing
-                        moveX += (dx / dist) * 0.5;
-                        moveZ += (dz / dist) * 0.5;
-                    }
+            // Movement Profile
+            if (isRangedWeapon) {
+                if (dist > attackRange * 0.75) {
+                    moveX = dirX; // Move closer
+                    moveZ = dirZ;
                 } else {
-                    // Melee aggression: Run straight at them!
-                    moveX = dx / dist;
-                    moveZ = dz / dist;
+                    // Strafe in a pattern, simplified math
+                    const strafe = (now % 2000 > 1000) ? 0.4 : -0.4;
+                    moveX = -dirZ * strafe;
+                    moveZ = dirX * strafe;
                 }
-
-                // ── ATTACK EXECUTION ──
-                const direction = { x: dx / dist, y: 0, z: dz / dist };
-
-                // Ranged Attack
-                if (ai.weapon && ai.weapon.ammo > 0) {
-                    const wpCd = BOT_WEAPON_COOLDOWN_MAP[ai.weapon.type] || 1000;
-                    const range = getWeaponRange(ai.weapon.type);
-
-                    if (now - ai.lastAttackTime > wpCd && dist <= range + 4) {
-                        ai.lastAttackTime = now;
-                        ai.weapon.ammo--;
-
-                        // Add some human-like inaccuracy
-                        const spread = 0.1;
-                        const aimDir = {
-                            x: direction.x + (Math.random() - 0.5) * spread,
-                            y: 0,
-                            z: direction.z + (Math.random() - 0.5) * spread
-                        };
-
-                        io.to(room.code).emit('player-attacked', {
-                            attackerId: botId,
-                            attackType: 'weapon',
-                            direction: aimDir,
-                            weaponType: ai.weapon.type
-                        });
-
-                        applyDamage(room, botId, ai.targetId, WEAPON_DAMAGE[ai.weapon.type] || 20);
-
-                        if (ai.weapon.ammo <= 0) ai.weapon = null;
-                    }
+            } else {
+                // Melee logic -> NEVER STOP M1
+                if (dist > 1.5) {
+                    moveX = dirX;
+                    moveZ = dirZ;
                 }
-                // Melee Attack
-                else if (now - ai.lastAttackTime > BOT_ATTACK_COOLDOWN && dist <= BOT_MELEE_RANGE + 1) {
-                    ai.lastAttackTime = now;
-                    bot.animState = 'attacking';
-                    io.to(room.code).emit('player-attacked', { attackerId: botId, attackType: 'melee', direction });
+            }
+
+            // Attack Logic
+            const cd = ai.weapon ? (BOT_WEAPON_COOLDOWN_MAP[ai.weapon.type] || 1000) : (BOT_ATTACK_COOLDOWN + 800); // NERF: extremely slow punches
+            const hitTolerance = ai.weapon ? 2.5 : 1.0; // NERF: must be practically touching to hit
+
+            if (dist <= attackRange + hitTolerance && now - (ai.lastAttackTime || 0) > cd) {
+                ai.lastAttackTime = now;
+                isAttacking = true;
+
+                if (ai.weapon) {
+                    ai.weapon.ammo--;
+                    io.to(room.code).emit('player-attacked', {
+                        attackerId: botId,
+                        attackType: 'weapon',
+                        direction: { x: dirX, y: 0, z: dirZ }, // Remove expensive Math.random spread
+                        weaponType: ai.weapon.type
+                    });
+                    applyDamage(room, botId, ai.targetId, WEAPON_DAMAGE[ai.weapon.type] || 20);
+                    if (ai.weapon.ammo <= 0) ai.weapon = null;
+                } else {
+                    io.to(room.code).emit('player-attacked', {
+                        attackerId: botId,
+                        attackType: 'melee',
+                        direction: { x: dirX, y: 0, z: dirZ }
+                    });
                     applyDamage(room, botId, ai.targetId, 10);
                 }
             }
-        }
-        else { // Roaming
-            if (now > ai.dirChangeTime) {
-                const angle = Math.random() * Math.PI * 2;
-                ai.moveDir = { x: Math.cos(angle), z: Math.sin(angle) };
-                ai.dirChangeTime = now + 1500 + Math.random() * 2500;
-            }
-            moveX = ai.moveDir.x; moveZ = ai.moveDir.z;
+        } else {
+            // Roaming slowly if completely alone (simplified math)
+            moveX = (now % 4000 > 2000) ? 0.3 : -0.3;
+            moveZ = (now % 3000 > 1500) ? 0.3 : -0.3;
+            speedMult = 0.5;
         }
 
-        // Apply Movement
-        if (bot.effects.stunned && now < bot.effects.stunned) { moveX = 0; moveZ = 0; }
-
-        let speedMult = 1.0;
-        if (bot.effects.speedBoost && now < bot.effects.speedBoost) speedMult = 1.6;
-
-        // Normalizing vector if needed? 
-        // Simple clamp for now to disable supersonic diagonals (though we calculate using sin/cos usually)
+        // Apply Position
+        if (bot.effects && bot.effects.stunned && now < bot.effects.stunned) { moveX = 0; moveZ = 0; isAttacking = false; }
 
         const speed = BOT_SPEED * dt * speedMult;
         bot.position.x += moveX * speed;
         bot.position.z += moveZ * speed;
 
-        // Bounds
         const bound = ARENA_RADIUS - 2;
         bot.position.x = Math.max(-bound, Math.min(bound, bot.position.x));
         bot.position.z = Math.max(-bound, Math.min(bound, bot.position.z));
 
-        // Rotation
-        if (moveX !== 0 || moveZ !== 0) {
-            bot.rotation.y = Math.atan2(moveX, moveZ);
-            bot.animState = 'moving';
+        // Animation & Pitch updates
+        if (isAttacking) {
+            bot.animState = 'attacking';
+            if (target) bot.rotation.y = Math.atan2(target.position.x - bot.position.x, target.position.z - bot.position.z);
+        } else if (Math.abs(moveX) > 0.01 || Math.abs(moveZ) > 0.01) {
+            if (bot.animState !== 'attacking' || now - (ai.lastAttackTime || 0) > 400) {
+                bot.animState = 'moving';
+                if (target && target.position) {
+                    bot.rotation.y = Math.atan2(target.position.x - bot.position.x, target.position.z - bot.position.z);
+                } else {
+                    bot.rotation.y = Math.atan2(moveX, moveZ);
+                }
+            }
         } else {
-            bot.animState = 'idle';
+            if (bot.animState !== 'attacking' || now - (ai.lastAttackTime || 0) > 400) {
+                bot.animState = 'idle';
+                // Even when idle, always stare at the target if in combat
+                if (target && target.position) {
+                    bot.rotation.y = Math.atan2(target.position.x - bot.position.x, target.position.z - bot.position.z);
+                }
+            }
         }
     });
 }
-
 // Helper: apply damage from attacker to target (used by bot combat)
 function applyDamage(room, attackerId, targetId, damage) {
     const target = room.players.get(targetId);
@@ -981,6 +902,11 @@ io.on('connection', (socket) => {
         if (targetId) {
             const target = room.players.get(targetId);
             if (target && target.alive) {
+                // Check Invulnerability 
+                if (target.effects && target.effects.invulnerable && Date.now() < target.effects.invulnerable) {
+                    return; // Ignore all damage while invulnerable
+                }
+
                 // Get base damage
                 let damage = WEAPON_DAMAGE[weaponType] || 10;
 
@@ -1014,7 +940,8 @@ io.on('connection', (socket) => {
                         t.health = 100;
                         t.alive = true;
                         t.position = randomSpawnPosition();
-                        t.effects = {};
+                        // Grant 3s invulnerability on respawn
+                        t.effects = { invulnerable: Date.now() + 3000 };
 
                         io.to(currentRoom).emit('player-respawned', {
                             id: targetId,
@@ -1067,7 +994,8 @@ io.on('connection', (socket) => {
                     t.health = 100;
                     t.alive = true;
                     t.position = randomSpawnPosition();
-                    t.effects = {};
+                    // Grant 3s invulnerability on respawn
+                    t.effects = { invulnerable: Date.now() + 3000 };
 
                     io.to(currentRoom).emit('player-respawned', {
                         id: targetId,

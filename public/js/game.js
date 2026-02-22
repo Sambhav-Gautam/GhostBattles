@@ -54,6 +54,12 @@
     let lastNetSend = 0;
     const NET_SEND_INTERVAL = 50; // ms (20 ticks/sec)
 
+    // Game Feel Variables
+    let cameraShake = 0;
+    let hitPauseTime = 0;
+    let lastKillTime = 0;
+    let comboCount = 0;
+
     // ── DOM References ─────────────────────────────
     const menuScreen = document.getElementById('menu-screen');
     const gameHud = document.getElementById('game-hud');
@@ -75,6 +81,10 @@
     const effectTimer = document.getElementById('effect-timer');
     const errorMsg = document.getElementById('error-msg');
     const waitMsg = document.getElementById('wait-msg');
+
+    const damageOverlayFlash = document.getElementById('damage-overlay-flash');
+    const comboAnnouncer = document.getElementById('combo-announcer');
+    const comboText = document.getElementById('combo-text');
 
     // ═══════════════════════════════════════════════
     //  SCENE INIT
@@ -172,17 +182,49 @@
     // ═══════════════════════════════════════════════
     //  HUD
     // ═══════════════════════════════════════════════
+    let lastRenderedHealth = -1;
     function updateHealthHUD() {
         const pct = Math.max(0, Math.round(health));
+        if (pct === lastRenderedHealth) return; // THROTTLE DOM UPDATES
+        lastRenderedHealth = pct;
+
         healthBar.style.width = pct + '%';
         healthText.textContent = pct;
 
-        healthBar.classList.remove('low', 'critical');
+        healthBar.className = 'hud-bar-fill'; // Reset classes faster than classList.remove
         if (pct <= 25) healthBar.classList.add('critical');
         else if (pct <= 50) healthBar.classList.add('low');
     }
 
-    function updateKillsHUD() { killCountEl.textContent = kills; }
+    let lastRenderedKills = -1;
+    function updateKillsHUD() {
+        if (kills === lastRenderedKills) return; // THROTTLE DOM UPDATES
+        lastRenderedKills = kills;
+        killCountEl.textContent = kills;
+    }
+
+    function triggerShake(intensity) {
+        cameraShake = Math.max(cameraShake, intensity);
+    }
+
+    function showCombo(count) {
+        if (count < 2) return;
+        const messages = { 2: 'DOUBLE KILL!', 3: 'TRIPLE KILL!', 4: 'QUAD KILL!', 5: 'DOMINATING!', 6: 'GODLIKE!' };
+        const text = messages[count] || 'UNSTOPPABLE!';
+        if (comboText) comboText.textContent = text;
+        if (!comboAnnouncer) return;
+
+        comboAnnouncer.classList.remove('hidden');
+        comboAnnouncer.classList.remove('active');
+        void comboAnnouncer.offsetWidth; // force CSS reflow
+        comboAnnouncer.classList.add('active');
+
+        if (comboAnnouncer._timeout) clearTimeout(comboAnnouncer._timeout);
+        comboAnnouncer._timeout = setTimeout(() => {
+            comboAnnouncer.classList.remove('active');
+            setTimeout(() => comboAnnouncer.classList.add('hidden'), 200);
+        }, 2000);
+    }
 
     // ── HUD Throttling ──
     let lastHUDUpdate = 0;
@@ -346,6 +388,12 @@
     function gameLoop() {
         requestAnimationFrame(gameLoop);
 
+        const now = Date.now();
+        if (now < hitPauseTime) {
+            // Drop rendering / logic temporarily for impact punch
+            return;
+        }
+
         const delta = Math.min(clock.getDelta(), 0.05);
         const time = clock.elapsedTime;
 
@@ -441,6 +489,15 @@
                 localPlayer.position.y + CAM_UP,
                 localPlayer.position.z + behindZ
             );
+
+            if (cameraShake > 0) {
+                _targetCamPos.x += (Math.random() - 0.5) * cameraShake;
+                _targetCamPos.y += (Math.random() - 0.5) * cameraShake;
+                _targetCamPos.z += (Math.random() - 0.5) * cameraShake;
+                cameraShake *= 0.85; // fast decay
+                if (cameraShake < 0.05) cameraShake = 0;
+            }
+
             camera.position.lerp(_targetCamPos, CAMERA_SMOOTH);
 
             // Look slightly ahead of the ghost
@@ -552,6 +609,11 @@
             if (hpBar) hpBar.lookAt(camera.position);
 
             data.mesh.visible = data.alive;
+
+            // Apply opacity if the remote player state says they are invulnerable
+            // We get this from the state updates. 
+            // In the render loop, we need to check the tracked effects, but right now we only copied them in game-state.
+            // Let's rely on the game-state update directly to set opacity.
         });
 
         // ── Powerup animations ──
@@ -722,6 +784,7 @@
             if (equippedWeapon && equippedWeapon.ammo > 0) {
                 const fired = Combat.weaponAttack(localPlayer, remotePlayers, socket, scene, equippedWeapon.type);
                 if (fired) {
+                    triggerShake(0.3);
                     equippedWeapon.ammo--;
                     updateWeaponHUD();
                     if (equippedWeapon.ammo <= 0) {
@@ -730,7 +793,8 @@
                     }
                 }
             } else {
-                Combat.meleeAttack(localPlayer, remotePlayers, camera, socket, scene);
+                const fired = Combat.meleeAttack(localPlayer, remotePlayers, camera, socket, scene);
+                if (fired) triggerShake(0.15);
             }
         });
         InputHandler.onSpecial(() => {
@@ -745,6 +809,7 @@
                     }
                 });
                 killStreak = 0;
+                ultimateReady = false; // Prevents infinite spam of the ultimate
                 updateUltimateBarHUD();
             }
         });
@@ -964,8 +1029,27 @@
                     remote.alive = data.alive;
                     remote.kills = data.kills;
                     remote.animState = data.animState;
+                    remote.effects = data.effects; // Track effects for remote opacity
+
+                    // Apply remote transparency
+                    if (data.effects && data.effects.invulnerable && Date.now() < data.effects.invulnerable) {
+                        GhostFactory.setOpacity(remote.mesh, 0.3);
+                    } else {
+                        GhostFactory.setOpacity(remote.mesh, 1.0);
+                    }
                 }
             });
+
+            // Handle Local Transparency
+            if (localPlayer) {
+                const lpState = state[localPlayerId];
+                if (lpState && lpState.effects && lpState.effects.invulnerable && Date.now() < lpState.effects.invulnerable) {
+                    GhostFactory.setOpacity(localPlayer, 0.3); // Transparent if invulnerable
+                } else {
+                    GhostFactory.setOpacity(localPlayer, 1.0); // Reset
+                }
+            }
+
             updatePlayerListHUD(state);
         });
 
@@ -1067,9 +1151,15 @@
             if (data.targetId === localPlayerId) {
                 health = data.health;
                 updateHealthHUD();
-                // screen shake
-                camera.position.x += (Math.random() - 0.5) * 0.4;
-                camera.position.y += (Math.random() - 0.5) * 0.25;
+
+                triggerShake(0.8);
+                if (damageOverlayFlash) {
+                    damageOverlayFlash.classList.add('active');
+                    if (damageOverlayFlash._timeout) clearTimeout(damageOverlayFlash._timeout);
+                    damageOverlayFlash._timeout = setTimeout(() => {
+                        damageOverlayFlash.classList.remove('active');
+                    }, 100);
+                }
             }
             // Update remote player health immediately
             const target = remotePlayers.get(data.targetId);
@@ -1109,10 +1199,10 @@
             // Visual Explosion
             if (victimData && victimData.mesh) {
                 const color = getGhostColor(victimData.ghostType);
-                Combat.spawnParticles(scene, victimData.mesh.position, color, 40, 0.8);
+                Combat.spawnDeathExplosion(scene, victimData.mesh.position, color);
             } else if (data.id === localPlayerId && localPlayer) {
                 const color = getGhostColor(localGhostType);
-                Combat.spawnParticles(scene, localPlayer.position, color, 50, 1.0);
+                Combat.spawnDeathExplosion(scene, localPlayer.position, color);
             }
 
             addKillFeedItem(data.killerName, data.id === localPlayerId ? localPlayerName : vName);
@@ -1125,6 +1215,27 @@
                     showEffect('⚡ ULTIMATE READY! Press E', 3000);
                 }
                 updateUltimateBarHUD();
+
+                // Game Feel - Screen Punch & Hit Pause
+                triggerShake(0.6);
+                hitPauseTime = Date.now() + 60; // 60ms pause
+                if (window.audioManager && window.audioManager.playKill) {
+                    window.audioManager.playKill();
+                }
+
+                // Combo calculation
+                const now = Date.now();
+                if (now - lastKillTime < 3500) { // 3.5 seconds window
+                    comboCount++;
+                } else {
+                    comboCount = 1;
+                }
+                lastKillTime = now;
+                showCombo(comboCount);
+
+                if (window.audioManager && window.audioManager.playComboSound) {
+                    window.audioManager.playComboSound(comboCount);
+                }
             }
 
             if (data.id === localPlayerId) {
@@ -1322,4 +1433,43 @@
     } else {
         init();
     }
+
+    // ── Global Exports for DOM attributes ──
+    window.selectGhost = function (type) {
+        document.querySelectorAll('.ghost-btn').forEach(b => b.classList.remove('selected'));
+        const btn = document.querySelector(`.ghost-btn[data-type="${type}"]`);
+        if (btn) btn.classList.add('selected');
+        localGhostType = type;
+    };
+
+    window.setBotCount = function (count) {
+        document.querySelectorAll('.bot-count-btn').forEach(b => b.classList.remove('selected'));
+        const btn = Array.from(document.querySelectorAll('.bot-count-btn')).find(b => parseInt(b.textContent) === count);
+        if (btn) btn.classList.add('selected');
+        selectedBotCount = count;
+    };
+
+    window.playSolo = function () {
+        socket._playWithBots = true;
+        createRoom();
+    };
+
+    window.createRoom = function () {
+        const nameInput = document.getElementById('player-name').value.trim();
+        if (nameInput) localPlayerName = nameInput;
+        socket.emit('create-room', { name: localPlayerName, ghostType: localGhostType });
+    };
+
+    window.joinRoom = function () {
+        const nameInput = document.getElementById('player-name').value.trim();
+        const codeInput = document.getElementById('room-code-input').value.trim().toUpperCase();
+        if (nameInput) localPlayerName = nameInput;
+        if (!codeInput) {
+            document.getElementById('error-msg').textContent = 'Enter a room code!';
+            document.getElementById('error-msg').classList.remove('hidden');
+            return;
+        }
+        document.getElementById('error-msg').classList.add('hidden');
+        socket.emit('join-room', { code: codeInput, name: localPlayerName, ghostType: localGhostType });
+    };
 })();

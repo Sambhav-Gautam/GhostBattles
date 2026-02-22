@@ -29,7 +29,7 @@ const Arena = (() => {
     //  SKY DOME (eerie haunted sky)
     // ══════════════════════════════════════════════
     function createSky(scene) {
-        const skyGeo = new THREE.SphereGeometry(250, 32, 32);
+        const skyGeo = new THREE.SphereGeometry(250, 8, 8); // EXTREME OPTIMIZATION: 2,000 polys -> 128 polys
         const canvas = document.createElement('canvas');
         canvas.width = 1024;
         canvas.height = 1024;
@@ -409,7 +409,7 @@ const Arena = (() => {
             group.add(crystal);
 
             // Crystal glow halo
-            const haloGeo = new THREE.SphereGeometry(0.9, 12, 12);
+            const haloGeo = new THREE.SphereGeometry(0.9, 6, 6); // EXTREME OPTIMIZATION: 288 -> 72 polys
             const haloMat = new THREE.MeshBasicMaterial({
                 color: crystColors[i],
                 transparent: true,
@@ -490,7 +490,7 @@ const Arena = (() => {
         group.add(core);
 
         // Core glow sphere
-        const coreGlowGeo = new THREE.SphereGeometry(1.2, 16, 16);
+        const coreGlowGeo = new THREE.SphereGeometry(1.2, 8, 8); // EXTREME OPTIMIZATION: 512 -> 128 polys
         const coreGlowMat = new THREE.MeshBasicMaterial({
             color: 0xff3366,
             transparent: true,
@@ -539,7 +539,7 @@ const Arena = (() => {
             OBSTACLE_POSITIONS.push({ x: sp.x, z: sp.z, r: 2.0 });
 
             // Pillar top orb (colored)
-            const oGeo = new THREE.SphereGeometry(0.4, 12, 12);
+            const oGeo = new THREE.SphereGeometry(0.4, 6, 6); // EXTREME OPTIMIZATION: 288 -> 72 polys
             const oMat = new THREE.MeshBasicMaterial({
                 color: sp.orbColor,
                 transparent: true,
@@ -629,7 +629,7 @@ const Arena = (() => {
 
             // Ghost fire (glowing sphere cluster)
             for (let f = 0; f < 3; f++) {
-                const fGeo = new THREE.SphereGeometry(0.2 + f * 0.1, 8, 8);
+                const fGeo = new THREE.SphereGeometry(0.2 + f * 0.1, 4, 4); // EXTREME OPTIMIZATION: 128 -> 32 polys
                 const fMat = new THREE.MeshBasicMaterial({
                     color: bp.fireColor,
                     transparent: true,
