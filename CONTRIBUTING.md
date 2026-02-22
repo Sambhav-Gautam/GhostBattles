@@ -1,6 +1,6 @@
 # Contributing to Ghost Battles
 
-First off, thanks for taking the time to contribute! 🎉
+First off, thanks for taking the time to contribute.
 
 The following is a set of guidelines for contributing to Ghost Battles. These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
 
@@ -31,30 +31,43 @@ This section guides you through submitting an enhancement suggestion for Ghost B
 
 The process described here has several goals:
 
-- Maintain Ghost Battles' quality
-- Fix problems that are important to users
-- Engage the community in working toward the best possible Ghost Battles
+- Maintain Ghost Battles' quality.
+- Fix problems that are important to users.
+- Engage the community in working toward the best possible Ghost Battles.
 
 Please follow these steps to have your contribution considered by the maintainers:
 
-1.  Follow all instructions in [the template](.github/PULL_REQUEST_TEMPLATE.md) (if available).
-2.  Follow the [styleguides](#styleguides)
-3.  After you submit your pull request, verify that all status checks are passing <details><summary>What if the status checks are failing?</summary>If a status check is failing, and you believe that the failure is unrelated to your change, please leave a comment on the pull request explaining why you believe the failure is unrelated. A maintainer will re-run the status check for you. If we conclude that the failure was a false positive, then we will open an issue to track that problem with our status check suite.</details>
+1. Follow all instructions in the pull request template (if available).
+2. Follow the styleguides outlined below.
+3. After you submit your pull request, verify that all status checks are passing. 
+    - If a status check is failing, and you believe that the failure is unrelated to your change, please leave a comment on the pull request explaining why you believe the failure is unrelated. A maintainer will re-run the status check for you. If we conclude that the failure was a false positive, then we will open an issue to track that problem with our status check suite.
+
+## Development Setup
+
+To set up your local development environment for Ghost Battles:
+
+1. Clone the repository.
+2. Run `npm install` to install necessary Node dependencies.
+3. Run `npm run dev` or `node server.js` to start the local Socket.IO and Express server.
+4. Navigate to `http://localhost:3000` to interact with the game.
+5. All client-side code is located in the `public/` directory (Three.js and Vanilla JS).
+6. The server-side code is in `server.js` and `db.js`.
 
 ## Styleguides
 
 ### Git Commit Messages
 
-- Use the present tense ("Add feature" not "Added feature")
-- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
-- Limit the first line to 72 characters or less
-- Reference issues and pull requests liberally after the first line
+- Use the present tense ("Add feature" not "Added feature").
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...").
+- Limit the first line to 72 characters or less.
+- Reference issues and pull requests liberally after the first line.
 
 ### JavaScript Styleguide
 
-- All JavaScript must adhere to [Standard JS](https://standardjs.com/).
+- All JavaScript must adhere to Standard JS guidelines.
 - Prefer `const` and `let` over `var`.
 - Use async/await for asynchronous code where possible.
+- Avoid external client-side game libraries unless explicitly discussed with maintainers. Ghost Battles relies on custom Three.js implementations for learning and performance purposes.
 
 ## Additional Notes
 
@@ -62,9 +75,9 @@ Please follow these steps to have your contribution considered by the maintainer
 
 This section lists the labels we use to help us track and manage issues and pull requests.
 
-*   `bug` - Issues that are bugs.
-*   `enhancement` - Issues that are feature requests.
-*   `documentation` - Issues or pull requests related to documentation.
-*   `good first issue` - Good for newcomers.
-*   `help wanted` - Extra attention is needed.
-*   `wontfix` - This will not be worked on.
+* `bug` - Issues that are bugs.
+* `enhancement` - Issues that are feature requests.
+* `documentation` - Issues or pull requests related to documentation.
+* `good first issue` - Good for newcomers.
+* `help wanted` - Extra attention is needed.
+* `wontfix` - This will not be worked on.

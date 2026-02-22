@@ -1,93 +1,141 @@
-# 👻 Ghost Battles
+<h1 align="center">Ghost Battles</h1>
 
-**Ghost Battles** is a fast-paced, browser-based multiplayer arena shooter where players control spectral entities and battle for dominance. Built with **Node.js**, **Socket.IO**, and **Three.js**, it features real-time combat, unique ghost abilities, and a custom-built physics and collision system.
+<p align="center">
+  A highly optimized, fast-paced, 3D multiplayer arena combat game built from scratch using Node.js, Socket.IO, and Three.js.
+</p>
 
-![Ghost Battles UI](https://via.placeholder.com/800x450/0f0f19/a855f7?text=Ghost+Battles:+New+Glassmorphic+UI)
+<p align="center">
+  <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" alt="NodeJS" />
+  <img src="https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101" alt="SocketIO" />
+  <img src="https://img.shields.io/badge/ThreeJs-black?style=for-the-badge&logo=three.js&logoColor=white" alt="ThreeJS" />
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/Optimized-Extreme-red.svg?style=for-the-badge" alt="Performance: Optimized" />
+</p>
 
-## 🎮 Features
+---
 
--   **Visual Overhaul**:
-    -   **Glassmorphic UI**: Sleek, modern interface with frosted glass effects and dynamic animations.
-    -   **Particle Effects**: Atmospheric background particles and glowing text effects.
--   **Smart Bots**: 
-    -   Server-controlled AI that actively hunts players across the map.
-    -   Intelligent combat behavior: uses cover, strafes, and scavenges weapons/powerups.
--   **Real-Time Multiplayer**: 
-    -   Seamless synchronization using Socket.IO.
-    -   **Robust Lobby System**: Create private rooms, join via code, and play solo with bots.
-    -   **Client-Side Prediction**: Smooth movement interpolation for high-action gameplay.
--   **Unique Ghost Classes**:
-    -   **Wraith**: High speed, dash ability.
-    -   **Phantom**: Stealth mechanics (Invisibility).
-    -   **Shade**: Defensive tank with damage mitigation (Shield).
-    -   **Specter**: Control specialist with AOE stuns.
--   **Dynamic Combat**:
-    -   Multiple weapon types (Holy Water, Silver Daggers, Exorcist Bible, etc.).
-    -   Powerups for health, speed, and damage boosts.
-    -   Melee and ranged attacks with custom particle effects.
--   **Persistent Stats**: SQLite database tracks kills, deaths, and wins across sessions.
--   **Audio System**: Custom Web Audio API synthesizer for procedural sound effects (no external assets).
+## Gameplay Premiere
 
-## 🛠️ Tech Stack
+Experience the rapid-action gameplay straight from the browser client, rendered in highly-optimized WebGL.
 
--   **Backend**: Node.js, Express, Socket.IO
--   **Frontend**: Three.js (WebGL), Vanilla JS
--   **Database**: SQLite (`better-sqlite3`)
--   **Audio**: Web Audio API (Procedural synthesis)
+<p align="center">
+  <img src="./public/assets/gameplay.webp" alt="Ghost Battles Action Gameplay Recording" width="100%" />
+</p>
 
-## 🚀 Getting Started
+---
 
-### Prerequisites
+## Project Overview
 
--   [Node.js](https://nodejs.org/) (v14+ recommended)
--   npm (comes with Node.js)
+Ghost Battles is a real-time multiplayer arena shooter where players control distinct spectral entities fighting for dominance. Designed with an emphasis on brutal speed and high-octane 3D combat, the engine pushes a custom-built physics and collision detection system operating entirely over WebSockets at an aggressive 30 ticks per second.
 
-### Installation
+The game boasts a premium "glassmorphic" user interface overlaying an eerie, retro-inspired, low-poly 3D world. Ghost Battles proves what is technically possible using vanilla web technologies without relying on heavy game engines like Unity or Unreal.
 
-1.  **Clone the repository**:
-    ```bash
-    git clone https://github.com/Sambhav-Gautam/GhostBattles.git
-    cd GhostBattles
-    ```
+## Core Features
 
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
+- **Real-Time Multiplayer Architecture:**
+  Seamless client-server synchronization using Socket.IO, featuring authoritative server states and client-side interpolation for smooth movement despite network latency.
+  
+- **Visual Overhaul and Optimization:**
+  A modern, sleek interface featuring frosted glass aesthetics with deep shadow layers. The 3D geometry engine has been heavily optimized (tens of thousands of polygons removed via low-poly primitive substitutions) allowing the game to run flawlessly on lower-end devices.
 
-3.  **Start the server**:
-    ```bash
-    node server.js
-    ```
+- **Intelligent Bot Integration:**
+  Server-side controlled combat bots (such as the CryptLord and ShadowHunter) that aggressively hunt players. The AI uses tactical algorithms for aggro-radius detection, randomized evasion maneuvering, and ultimate ability deployment.
 
-4.  **Play**:
-    Open your browser and navigate to `http://localhost:3000`.
+- **Distinct Spectral Classes:**
+  Pick a ghost that suits your playstyle:
+  - **Wraith:** High mobility and rapid dashing.
+  - **Phantom:** Specializes in stealth and temporary invisibility.
+  - **Shade:** A defensive anchor providing heavy damage mitigation shields.
+  - **Specter:** Crowd control expert focused on area-of-effect stuns.
 
-## 🕹️ Controls
+- **Procedural Weapons and Relics:**
+  Weapons like the Silver Dagger, Exorcist's Bible, and Binding Chains spawn dynamically in the arena. Every weapon has custom attributes (damage, cooldown, range) paired with unique geometric particle explosion effects.
 
--   **WASD / Arrow Keys**: Move
--   **Mouse**: Aim
--   **Left Click**: Attack (Shoot / Melee)
--   **Space**: Attack (Alternative)
--   **E**: Use Special Ability (Dash, Invis, Shield, Stun)
--   **Shift**: Sprint / Ability (Alternative)
+- **Algorithmic Audio Synthesis:**
+  No external sound assets are loaded. Every auditory cue in the game—from distant thunder loops to weapon impacts—is synthesized procedurally in real-time utilizing the Web Audio API.
 
-## 📂 Project Structure
+---
 
-```
-├── public/             # Client-side assets
-│   ├── js/             # Game logic (Three.js, Socket.IO)
-│   ├── assets/         # Textures and models
-│   └── index.html      # Game entry point
-├── server.js           # Main Node.js server & game loop
-├── db.js               # Database interface (SQLite)
-└── package.json        # Dependencies
+## Technical Architecture
+
+The architecture relies strictly on lightweight modern frameworks and raw JavaScript capabilities.
+
+- **Backend Network Layer:** Node.js with Express and Socket.IO handling physics loop operations.
+- **Frontend Rendering Engine:** Three.js (WebGL) managing lighting, camera projection, and low-poly environment generation. Vanilla JS controls the DOM state and HUD throttling.
+- **Persistence Layer:** A fast, synchronized SQLite database (`better-sqlite3`) tracking user statistics, kills, and global leaderboard data across instances.
+
+## Installation and Execution
+
+Setting up Ghost Battles on your local environment requires Node.js (v14+ is recommended).
+
+### Cloning the Repository
+
+```bash
+git clone https://github.com/Sambhav-Gautam/GhostBattles.git
+cd GhostBattles
 ```
 
-## 🤝 Contributing
+### Installing Dependencies
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+npm install
+```
 
-## 📄 License
+### Starting the Server
 
-This project is open source and available under the [MIT License](LICENSE).
+Launch the engine's backend game loop and HTTP server:
+
+```bash
+node server.js
+```
+
+### Connectivity
+
+Once the server initializes, launch your preferred modern web browser and navigate directly to:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Keyboard Controls
+
+Ghost Battles relies entirely on keyboard and mouse combinations for fluid movement and combat mapping.
+
+- **W, A, S, D** or **Arrow Keys**: Omnidirectional movement.
+- **Mouse Cursor**: Controls camera look angle and targeting.
+- **Left Mouse Click**: Deploy primary attack or discharge currently held weapon.
+- **Space Bar**: Execute alternative strike action.
+- **E**: Activate the ghost's specific special ultimate ability.
+- **Shift**: Engage sprinting protocols or specific movement-based skills.
+
+---
+
+## Repository Structure
+
+```text
+├── public/                 # Assorted client-side distribution logic
+│   ├── assets/             # Documentation media, branding, and assets
+│   ├── css/                # Styling, animations, and glassmorphic variables
+│   ├── js/                 # Three.js configuration, combat rules, client netting
+│   └── index.html          # HUD structures and canvas mount points
+├── CODE_OF_CONDUCT.md      # Community behavioral expectations
+├── CONTRIBUTING.md         # Open-source pull request and architectural standards
+├── SECURITY.md             # Security and vulnerability disclosure protocol
+├── server.js               # Authoritative core multiplayer game loop
+├── db.js                   # Asynchronous interface for SQLite operations
+└── package.json            # Node modular dependency definitions
+```
+
+---
+
+## Contributing Guidelines
+
+Ghost Battles embraces open-source contributions. Prior to submitting a functional pull request, please review the expectations delineated inside `CONTRIBUTING.md`. Code implementations must abide by standard JS formats and prioritize maintaining 60 frames-per-second performance.
+
+Please ensure adherence to our detailed `CODE_OF_CONDUCT.md`.
+
+## Open Source License
+
+This codebase is distributed openly under the [MIT License](LICENSE). Review the attached license document for usage permutations and liabilities.
