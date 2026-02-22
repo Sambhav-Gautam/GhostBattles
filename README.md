@@ -14,12 +14,16 @@
 
 ---
 
-## Gameplay Premiere
+## Action Highlights
 
 Experience the rapid-action gameplay straight from the browser client, rendered in highly-optimized WebGL.
 
 <p align="center">
-  <img src="./public/assets/gameplay.webp" alt="Ghost Battles Action Gameplay Recording" width="100%" />
+  <img src="./public/assets/action1.png" alt="Ghost Combat Action" width="48%" />
+  <img src="./public/assets/action2.png" alt="Dodging Projectiles" width="48%" />
+</p>
+<p align="center">
+  <img src="./public/assets/action3.png" alt="Arena Ultimate Abilities" width="98%" />
 </p>
 
 ---
